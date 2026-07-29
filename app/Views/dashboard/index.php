@@ -3575,16 +3575,21 @@ $openSettingsModal = !empty($successMessage) || !empty($errorMessage) || !empty(
             initTickerTape();
             loadChart('BINANCE:BTCUSDT');
 
-            setInterval(fetchBalance,           30000);
-            setInterval(fetchActiveTrades,      5000);
-            setInterval(fetchFuturesPositions,  5000);
+            // 29 Temmuz'da hizlandirildi (VPS gecisi sonrasi, "daha canli hissettirsin" talebi):
+            // sadece "canli" hissi en cok etkileyen 3 kalem (acik pozisyon/bakiye/fiyat seridi)
+            // sikilastirildi - digerleri (haberler/radar/bot loglari) kasitli DOKUNULMADI, onlarin
+            // saniyede bir degismesinin gercek bir faydasi yok, sadece VPS'e ve Binance'e gereksiz
+            // yuk bindirirdi (1GB RAM'lik VPS + coklu kullanici ihtimali)
+            setInterval(fetchBalance,           15000);
+            setInterval(fetchActiveTrades,      3000);
+            setInterval(fetchFuturesPositions,  3000);
             setInterval(fetchBotLogs,           60000);
             setInterval(fetchShield,            60000);
             setInterval(fetchPnl,               60000);
             setInterval(fetchPortfolio,         30000);
             setInterval(fetchScanStatus,        60000);
             setInterval(function () { fetchSystemStatus(false); }, 60000);
-            setInterval(refreshTickerTape,      15000);
+            setInterval(refreshTickerTape,      5000);
             // 22 Temmuz'da eklendi: fetchRadar/fetchNews eskiden SADECE sayfa ilk acildiginda ve
             // sekmeye geri donulunce (visibilitychange/focus) calisiyordu, digerleri gibi periyodik
             // degildi - "dashboard tam canli degil" geri bildirimi uzerine eklendi. Backend zaten

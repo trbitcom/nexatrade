@@ -2,6 +2,11 @@
 
 Bu dosya NexaTrade'in sürüm geçmişini tutar. Format [Keep a Changelog](https://keepachangelog.com/tr/1.0.0/) ilkelerini, sürümleme ise [Semantic Versioning](https://semver.org/lang/tr/) (Major.Minor.Patch) kurallarını izler.
 
+## [1.74.2] - 2026-07-29
+
+### İyileştirme
+- [dashboard/index.php] Açık pozisyon/futures yenileme 5sn→3sn, bakiye 30sn→15sn, fiyat şeridi 15sn→5sn'ye hızlandırıldı - VPS geçişi sonrası "daha canlı hissettirsin" talebi. Haberler/radar/bot logları kasıtlı dokunulmadı, saniyelik değişmelerinin faydası yok, gereksiz sunucu/Binance yükü olurdu.
+
 ## [1.74.1] - 2026-07-29
 
 ### Hata Düzeltme
