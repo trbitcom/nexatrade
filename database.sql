@@ -711,6 +711,18 @@ ALTER TABLE `active_trades`
     ADD COLUMN IF NOT EXISTS `entry_rsi_15m` DECIMAL(5,2) NULL COMMENT 'Giris anindaki 15 dakikalik RSI (TechnicalScoreEngine rsi_15m) - sadece kayit, karar mantigini etkilemez';
 
 -- --------------------------------------------------------
+-- Migrasyon: orders.type ENUM'una 'manual_close' ve 'market_emergency' eklenir (30 Temmuz) -
+-- canli olayda tespit edildi: musterinin "Simdi Kapat" butonu (DashboardController::apiClosePosition)
+-- finalizeSpotClose()'a orderType='manual_close' gonderiyordu, ama bu deger ENUM'da yoktu -
+-- INSERT "Data truncated for column 'type'" hatasiyla PATLIYOR, kritik "Sistem Kaydi Basarisiz"
+-- uyarisina yol aciyordu (EULUSDT #229 canli olayi). 'market_emergency' de AYNI riski tasiyordu
+-- (v1.74.0 Acil Durum Protokolu, henuz hic tetiklenmemisti ama ayni ENUM'u kullaniyordu) - ikisi
+-- birlikte eklendi
+-- --------------------------------------------------------
+ALTER TABLE `orders`
+    MODIFY COLUMN `type` ENUM('market', 'limit', 'oco', 'stop_loss', 'manual_close', 'market_emergency') NOT NULL DEFAULT 'market';
+
+-- --------------------------------------------------------
 -- Test kullanicisi (login akisini denemek icin) - admin yetkisiyle
 -- E-posta : test@nexatrade.com
 -- Sifre   : Test1234!

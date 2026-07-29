@@ -2,6 +2,12 @@
 
 Bu dosya NexaTrade'in sürüm geçmişini tutar. Format [Keep a Changelog](https://keepachangelog.com/tr/1.0.0/) ilkelerini, sürümleme ise [Semantic Versioning](https://semver.org/lang/tr/) (Major.Minor.Patch) kurallarını izler.
 
+## [1.76.2] - 2026-07-30
+
+### Hata Düzeltme (Kritik)
+- [database.sql] `orders.type` ENUM'una `manual_close` ve `market_emergency` eklendi - EULUSDT #229 canlı olayında tespit edildi: "Şimdi Kapat" butonu `finalizeSpotClose()`'a `orderType='manual_close'` gönderiyordu ama bu değer ENUM'da yoktu, `Order::create()` "Data truncated for column 'type'" hatasıyla patlayıp kritik "Sistem Kaydı Başarısız" uyarısı üretiyordu (pozisyon aslında Binance'te kapanmıştı, sadece kayıt başarısız oluyordu - bir sonraki reconcile turu kendi kendini onarıp `closed_manual` ile telafi etti). v1.74.0'daki Acil Durum Protokolü'nün `market_emergency` değeri de AYNI riski taşıyordu (henüz hiç tetiklenmemişti), o da düzeltildi.
+- [storage/logs] İzinler düzeltildi - CLI cron'lar (root) ile web istekleri (www-data) farklı kullanıcılar olduğu için, root'un oluşturduğu log dosyalarına www-data yazamıyordu ("Şimdi Kapat" gibi web-tetikli işlemlerde `logAutomationError()` sessizce `Permission denied` hatası veriyordu). Klasör artık `www-data` grup sahipliğinde, grup yazma izniyle (`775` + `setgid`) - hem root hem www-data yazabiliyor.
+
 ## [1.76.1] - 2026-07-30
 
 ### Hata Düzeltme
