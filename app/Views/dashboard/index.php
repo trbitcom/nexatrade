@@ -474,12 +474,12 @@ $openSettingsModal = !empty($successMessage) || !empty($errorMessage) || !empty(
                 <div class="hidden md:block w-px h-4 bg-black/5 flex-none"></div>
                 <div class="flex flex-col md:flex-row md:items-center gap-0.5 md:gap-1.5 md:whitespace-nowrap">
                     <span class="text-gray-500 tracking-widest">TAMAMLANAN</span>
-                    <span class="text-gray-900 font-bold"><?= (int) $completedOrders ?></span>
+                    <span id="navCompletedOrders" class="text-gray-900 font-bold"><?= (int) $completedOrders ?></span>
                 </div>
                 <div class="hidden md:block w-px h-4 bg-black/5 flex-none"></div>
                 <div class="flex flex-col md:flex-row md:items-center gap-0.5 md:gap-1.5 md:whitespace-nowrap">
                     <span class="text-gray-500 tracking-widest">AÇIK POZİSYON</span>
-                    <span class="text-gray-900 font-bold"><?= count($activeTrades) + count($activeFuturesTrades) ?></span>
+                    <span id="navOpenPositions" class="text-gray-900 font-bold"><?= count($activeTrades) + count($activeFuturesTrades) ?></span>
                 </div>
                 <div class="hidden md:block w-px h-4 bg-black/5 flex-none"></div>
                 <div class="flex flex-col md:flex-row md:items-center gap-0.5 md:gap-1.5 md:whitespace-nowrap">
@@ -2439,6 +2439,15 @@ $openSettingsModal = !empty($successMessage) || !empty($errorMessage) || !empty(
 
         var _totalBalance   = 0;
         var _openTradeCount = 0;
+        var _openFuturesTradeCount = 0;
+
+        // 30 Temmuz'da eklendi: "AÇIK POZİSYON" ust bar sayaci hic id/JS guncellemesi almiyordu -
+        // fetchActiveTrades() (spot, 3sn) ve fetchFuturesPositions() (futures, 3sn) ikisi de bu
+        // ortak fonksiyonu cagirir, ikisinin toplamini yazar
+        function updateNavOpenPositions() {
+            var el = document.getElementById('navOpenPositions');
+            if (el) el.textContent = _openTradeCount + _openFuturesTradeCount;
+        }
 
         // Sayı biçimlendirici
         function fmt$(n) {
@@ -2767,6 +2776,7 @@ $openSettingsModal = !empty($successMessage) || !empty($errorMessage) || !empty(
                     updateTradeProgress(trades);
                     updateLiveChartFromTrades(trades);
                     refreshDonut();
+                    updateNavOpenPositions();
                 })
                 .catch(function() {
                     markUpdated('hunts');
@@ -3203,7 +3213,10 @@ $openSettingsModal = !empty($successMessage) || !empty($errorMessage) || !empty(
             safeFetch('/api/dashboard/futures-positions')
                 .then(function(d) {
                     if (!d.success) { return; }
-                    updateFuturesProgress(d.trades || {});
+                    var trades = d.trades || {};
+                    _openFuturesTradeCount = Object.keys(trades).length;
+                    updateFuturesProgress(trades);
+                    updateNavOpenPositions();
                 })
                 .catch(function() {});
         }
@@ -3436,6 +3449,14 @@ $openSettingsModal = !empty($successMessage) || !empty($errorMessage) || !empty(
             var wrDetail= document.getElementById('pnlWinDetail');
             var arc     = document.getElementById('winRateArc');
             var navDaily = document.getElementById('navDailyPnl');
+            // 30 Temmuz'da eklendi: "TAMAMLANAN" ust bar sayaci hic id/JS guncellemesi almiyordu,
+            // sayfa ilk acildiginda PHP'nin yazdigi deger sonsuza kadar sabit kalip yenileme
+            // gerektiriyordu - /api/dashboard/pnl zaten total_trades donduruyordu, sadece bu alana
+            // hic yazilmiyordu
+            var navCompleted = document.getElementById('navCompletedOrders');
+            if (navCompleted && d.total_trades !== undefined && d.total_trades !== null) {
+                navCompleted.textContent = d.total_trades;
+            }
 
             if (daily) {
                 daily.className = 'font-mono-tech text-sm font-bold ' + pnlClass(d.daily_profit);

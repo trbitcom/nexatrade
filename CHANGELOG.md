@@ -2,6 +2,11 @@
 
 Bu dosya NexaTrade'in sürüm geçmişini tutar. Format [Keep a Changelog](https://keepachangelog.com/tr/1.0.0/) ilkelerini, sürümleme ise [Semantic Versioning](https://semver.org/lang/tr/) (Major.Minor.Patch) kurallarını izler.
 
+## [1.75.1] - 2026-07-30
+
+### Hata Düzeltme
+- [dashboard/index.php] Üst bardaki "TAMAMLANAN" ve "AÇIK POZİSYON" sayaçları hiç `id`/JS güncellemesi almıyordu - sayfa ilk açıldığında PHP'nin yazdığı değer sayfa yenilenene kadar sonsuza dek sabit kalıyordu. "TAMAMLANAN" artık zaten var olan `/api/dashboard/pnl` döngüsüne (60sn) eklendi, "AÇIK POZİSYON" spot+futures pozisyon sayılarının toplamı olarak her iki döngüde de (3sn) güncelleniyor. Diğer üst bar öğeleri (Bakiye, Günlük PNL, Portföy, GR.DIŞI) zaten doğru çalışıyordu, sadece 30-60sn aralıkla.
+
 ## [1.75.0] - 2026-07-29
 
 ### Yeni Özellik
