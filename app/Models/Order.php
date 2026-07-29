@@ -9,17 +9,21 @@ use PDO;
 
 final class Order
 {
-    // 22 Temmuz'da canli diagnostik ile tespit edildi: en buyuk 5 gercek zarardan 3'u (TLMUSDT/
+    // 30 Temmuz'da GUNCELLENDI (VPS/Guzelhosting gecis gunu istatistik sifirlama talebi uzerine):
+    // 29-30 Temmuz'daki yogun mutabakat/test/manuel duzeltme islemleri (SOL/PEPE/ONDO/COTI elle
+    // kapatma, test alim-satimlari) "kazanma orani/tamamlanan islem" istatistiklerini kirletiyordu -
+    // gercek trading performansini yansitmiyordu. KASITLI OLARAK gercek veri (orders/active_trades)
+    // SILINMEDI/degistirilmedi, sadece istatistik hesaplama penceresi bugune cekildi - bkz. asagidaki
+    // eski gerekce (22 Temmuz, ilk 3 "kirli" islemi dislamak icin ayni mekanizma kullanilmisti,
+    // o zamanki 8 Temmuz kesimi artik gecerliligini yitirdi, bu yeni kesim onun yerini alir):
+    // "22 Temmuz'da canli diagnostik ile tespit edildi: en buyuk 5 gercek zarardan 3'u (TLMUSDT/
     // BELUSDT/HMSTRUSDT, ortalama -%10, digerlerinin ~6 kati) 6-7 Temmuz'a ait - platformun
-    // strategy_bucket takibi/mevcut Izleyen Stop-Zarar Kes olgunlugu OTURMADAN ONCEKI ilk gunlerine.
-    // Bu 3 islem tek basina platform genelindeki ortalama kaybi -%1.68'den -%2.73'e cekiyordu.
+    // strategy_bucket takibi/mevcut Izleyen Stop-Zarar Kes olgunlugu OTURMADAN ONCEKI ilk gunlerine."
     // KASITLI OLARAK "strategy_bucket IS NOT NULL" filtresi DEGIL, TARIH kesimi kullanilir: webhook
     // kaynakli (WebhookController::recordOrderResult) islemler de strategy_bucket'i HICBIR ZAMAN
     // set etmez - NULL kontrolu, gelecekteki GECERLI webhook islemlerini de sessizce istatistik
-    // disi birakirdi. Tarih kesimi SADECE bu 3 eski/erken donem islemi disliyor, sonraki HICBIR
-    // gecerli islemi (webhook dahil) etkilemiyor. Kesim, en son "kirli" islem (7 Temmuz 12:45) ile
-    // ilk "temiz" (strategy_bucket'li) islem (10 Temmuz 05:15) arasindaki bosluga yerlestirildi
-    private const STATS_CUTOFF_AT = '2026-07-08 00:00:00';
+    // disi birakirdi.
+    private const STATS_CUTOFF_AT = '2026-07-30 00:00:00';
 
     // 26 Temmuz'da eklendi: gercek islem gecmisi raporunda (133 kapanan islem) kar/zarar durumu
     // Binance komisyonu DUSULMEDEN hesaplaniyordu - marjinal karli (ör. +%0.05) bir islem gercekte

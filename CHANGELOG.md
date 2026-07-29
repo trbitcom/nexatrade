@@ -2,6 +2,11 @@
 
 Bu dosya NexaTrade'in sürüm geçmişini tutar. Format [Keep a Changelog](https://keepachangelog.com/tr/1.0.0/) ilkelerini, sürümleme ise [Semantic Versioning](https://semver.org/lang/tr/) (Major.Minor.Patch) kurallarını izler.
 
+## [1.75.2] - 2026-07-30
+
+### Değişiklik
+- [Order] `STATS_CUTOFF_AT` 8 Temmuz'dan 30 Temmuz'a çekildi - VPS geçişi/mutabakat/test işlemlerinin kirlettiği "kazanma oranı/tamamlanan işlem" istatistikleri artık bugünden itibaren temiz sayılıyor. Gerçek işlem geçmişi (`orders`/`active_trades`) hiçbir şekilde silinmedi/değiştirilmedi - sadece istatistik hesaplama penceresi kaydırıldı, aynı mekanizma 22 Temmuz'da ilk kez bu amaçla kurulmuştu.
+
 ## [1.75.1] - 2026-07-30
 
 ### Hata Düzeltme
