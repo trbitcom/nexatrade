@@ -2,6 +2,11 @@
 
 Bu dosya NexaTrade'in sürüm geçmişini tutar. Format [Keep a Changelog](https://keepachangelog.com/tr/1.0.0/) ilkelerini, sürümleme ise [Semantic Versioning](https://semver.org/lang/tr/) (Major.Minor.Patch) kurallarını izler.
 
+## [1.75.3] - 2026-07-29
+
+### Hata Düzeltme
+- [Order] `STATS_CUTOFF_AT` bir önceki sürümde (1.75.2) yanlışlıkla '2026-07-30 00:00:00' (VPS'in gerçek tarihinden İLERİDE) yazılmıştı - `date` ile doğrulanan gerçek sunucu saatine göre bu, bugünün (BANKUSDT #231 dahil) hiçbir işleminin sayılamaması anlamına geliyordu. '2026-07-29 21:00:00'e düzeltildi - günün erken saatlerindeki mutabakat/test gürültüsünü hâlâ dışlıyor, VPS canlıya alındıktan sonraki gerçek işlemleri içine alıyor.
+
 ## [1.75.2] - 2026-07-30
 
 ### Değişiklik

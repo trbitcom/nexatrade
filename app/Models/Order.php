@@ -23,7 +23,13 @@ final class Order
     // kaynakli (WebhookController::recordOrderResult) islemler de strategy_bucket'i HICBIR ZAMAN
     // set etmez - NULL kontrolu, gelecekteki GECERLI webhook islemlerini de sessizce istatistik
     // disi birakirdi.
-    private const STATS_CUTOFF_AT = '2026-07-30 00:00:00';
+    // DUZELTME (ayni gun): ilk denemede yanlislikla '2026-07-30 00:00:00' yazilmisti - VPS'in
+    // GERCEK saat dilimi/tarihi (dogrudan `date` ile dogrulandi) hala 29 Temmuz oldugundan, kesim
+    // GELECEGE ayarlanmis oluyordu - bugunun (BANKUSDT #231 dahil) HICBIR gercek islemi sayilamiyordu.
+    // 21:00 secildi: gunun erken saatlerindeki mutabakat/test gurultusunu (SOL/PEPE/ONDO/COTI elle
+    // kapatma) hala disliyor, ama VPS canliya alindiktan sonraki gercek islemleri (EULUSDT #229,
+    // BANKUSDT #231 vb.) icine alir
+    private const STATS_CUTOFF_AT = '2026-07-29 21:00:00';
 
     // 26 Temmuz'da eklendi: gercek islem gecmisi raporunda (133 kapanan islem) kar/zarar durumu
     // Binance komisyonu DUSULMEDEN hesaplaniyordu - marjinal karli (ör. +%0.05) bir islem gercekte
