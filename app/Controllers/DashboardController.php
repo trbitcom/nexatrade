@@ -1014,6 +1014,27 @@ final class DashboardController
         }
     }
 
+    // "Son İşlemler" panelinin JS ile sayfa yenilenmeden guncellenebilmesi icin - bu panel eskiden
+    // SADECE ilk sayfa yuklemesinde $recentOrders ile PHP tarafinda render ediliyordu, manuel kapatma
+    // gibi sayfa acikken olusan yeni bir siparis F5 atilmadan asla gorunmuyordu
+    public function apiRecentOrders(): void
+    {
+        $userId = $this->requireAjaxAuth();
+        if ($userId === null) {
+            return;
+        }
+
+        header('Content-Type: application/json');
+
+        try {
+            $orders = Order::findRecentByUser($userId, 10);
+            echo json_encode(['success' => true, 'orders' => $orders], JSON_UNESCAPED_UNICODE);
+        } catch (Throwable $e) {
+            error_log('[apiRecentOrders] ' . $e->getMessage());
+            echo json_encode(['success' => false, 'message' => 'İşlem geçmişi alınamadı', 'orders' => []], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
     public function apiLogs(): void
     {
         $userId = $this->requireAjaxAuth();

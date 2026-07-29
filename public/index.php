@@ -115,6 +115,7 @@ $router->get('/api/dashboard/scan-status',  [DashboardController::class, 'apiSca
 $router->get('/api/dashboard/futures-positions', [DashboardController::class, 'apiFuturesPositions']);
 $router->get('/api/dashboard/order-detail', [DashboardController::class, 'apiOrderDetail']);
 $router->get('/api/dashboard/order-history', [DashboardController::class, 'apiOrderHistory']);
+$router->get('/api/dashboard/recent-orders', [DashboardController::class, 'apiRecentOrders']);
 $router->get('/api/dashboard/system-status', [DashboardController::class, 'apiSystemStatus']);
 $router->get('/api/dashboard/performance-breakdown', [DashboardController::class, 'apiPerformanceBreakdown']);
 $router->post('/api/dashboard/clear-cooldown', [DashboardController::class, 'apiClearSymbolCooldown']);

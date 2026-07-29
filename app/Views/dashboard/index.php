@@ -768,7 +768,7 @@ $openSettingsModal = !empty($successMessage) || !empty($errorMessage) || !empty(
                 <div class="flex items-center gap-2">
                     <button type="button" onclick="openOrderHistoryModal()" class="font-mono-tech text-[9px] tracking-widest text-violet-600 border border-violet-400/30 hover:bg-violet-400/10 rounded px-1.5 py-0.5 transition-colors">GEÇMİŞ</button>
                     <button type="button" onclick="openPerformanceModal()" class="font-mono-tech text-[9px] tracking-widest text-violet-600 border border-violet-400/30 hover:bg-violet-400/10 rounded px-1.5 py-0.5 transition-colors">ANALİZ</button>
-                    <span class="font-mono-tech text-[10px] text-gray-500 tracking-widest"><?= count($recentOrders) ?> KAYIT</span>
+                    <span id="recentOrdersCount" class="font-mono-tech text-[10px] text-gray-500 tracking-widest"><?= count($recentOrders) ?> KAYIT</span>
                 </div>
             </div>
             <!-- SON BOT TARAMASI — JS ile doldurulur -->
@@ -781,7 +781,7 @@ $openSettingsModal = !empty($successMessage) || !empty($errorMessage) || !empty(
                     <span>Bekleniyor</span>
                 </div>
             </div>
-            <div class="flex-1 min-h-0 overflow-y-auto thin-scroll">
+            <div id="recentOrdersContainer" class="flex-1 min-h-0 overflow-y-auto thin-scroll">
                 <?php if (empty($recentOrders)): ?>
                     <p class="font-mono-tech text-xs text-gray-500 px-4 py-3">Henüz işlem yok</p>
                 <?php else: ?>
@@ -3417,6 +3417,94 @@ $openSettingsModal = !empty($successMessage) || !empty($errorMessage) || !empty(
             c.scrollTop = c.scrollHeight;
         }
 
+        // "Son İşlemler" paneli - PHP'deki ilk-yukleme render'iyle (dashboard/index.php, $recentOrders
+        // dongusu) AYNI etiket/renk kurallarini JS tarafinda tekrarlar, ikisi senkron kalmali
+        var RECENT_ORDER_STATUS_MAP = {
+            FILLED:    ['OK', 'bg-emerald-400/10 text-emerald-600'],
+            FAILED:    ['HATA', 'bg-rose-400/10 text-rose-600'],
+            PENDING:   ['BEKLİYOR', 'bg-amber-400/10 text-amber-600'],
+            CANCELLED: ['İPTAL', 'bg-gray-400/10 text-gray-600'],
+        };
+
+        function trimQtyJs(value) {
+            var fixed = parseFloat(value).toFixed(8).replace(/0+$/, '').replace(/\.$/, '');
+            return fixed === '' ? '0' : fixed;
+        }
+
+        function fetchRecentOrders() {
+            safeFetch('/api/dashboard/recent-orders')
+                .then(function(d) {
+                    if (!d.success) {
+                        panelErr('recentOrdersContainer');
+                        return;
+                    }
+                    renderRecentOrders(d.orders || []);
+                })
+                .catch(function() {
+                    panelErr('recentOrdersContainer');
+                });
+        }
+
+        function renderRecentOrders(orders) {
+            var c = document.getElementById('recentOrdersContainer');
+            if (!c) return;
+
+            var countEl = document.getElementById('recentOrdersCount');
+            if (countEl) { countEl.textContent = orders.length + ' KAYIT'; }
+
+            if (!orders.length) {
+                c.innerHTML = '<p class="font-mono-tech text-xs text-gray-500 px-4 py-3">Henüz işlem yok</p>';
+                return;
+            }
+
+            var rows = orders.map(function(order) {
+                var side = (order.side || '').toUpperCase();
+                var status = (order.status || '').toUpperCase();
+
+                var sideLabel = side === 'BUY' ? 'AL' : 'SAT';
+                var sideClasses = side === 'BUY' ? 'bg-emerald-400/10 text-emerald-600' : 'bg-rose-400/10 text-rose-600';
+
+                var statusInfo = RECENT_ORDER_STATUS_MAP[status] || [status, 'bg-gray-400/10 text-gray-600'];
+                var statusLabel = statusInfo[0];
+                var statusClasses = statusInfo[1];
+                var errorMessage = order.error_message || '';
+                var statusTitle = (status === 'FAILED' && errorMessage !== '') ? errorMessage : '';
+
+                var lossReason = order.loss_reason || '';
+                var lossIcon = lossReason !== ''
+                    ? '<span class="ml-0.5 cursor-help" title="' + escapeHtml(lossReason) + '">ℹ️</span>'
+                    : '';
+
+                var statusTitleAttr = statusTitle !== '' ? ' title="' + escapeHtml(statusTitle) + '"' : '';
+                var statusExtraClasses = statusTitle !== '' ? ' cursor-help border-b border-dashed border-rose-400/50' : '';
+
+                return '<tr class="border-t border-black/5 hover:bg-black/[0.015] cursor-pointer transition-colors" onclick="openOrderDetail(' + parseInt(order.id, 10) + ')">'
+                    + '<td class="px-4 py-1.5 font-semibold text-gray-800">' + escapeHtml(order.pair || '') + '</td>'
+                    + '<td class="px-2 py-1.5">'
+                    +   '<span class="rounded px-1.5 py-0.5 ' + sideClasses + '">' + sideLabel + '</span>' + lossIcon
+                    + '</td>'
+                    + '<td class="px-2 py-1.5 text-gray-600">' + trimQtyJs(order.quantity) + '</td>'
+                    + '<td class="px-2 py-1.5 text-gray-600">$' + formatFullPrecisionPrice(order.price) + '</td>'
+                    + '<td class="px-4 py-1.5">'
+                    +   '<span class="rounded px-1.5 py-0.5 ' + statusClasses + statusExtraClasses + '"' + statusTitleAttr + '>' + escapeHtml(statusLabel) + '</span>'
+                    + '</td>'
+                    + '<td class="px-2 py-1.5 text-right text-gray-400">👁</td>'
+                    + '</tr>';
+            }).join('');
+
+            c.innerHTML = '<table class="w-full font-mono-tech text-[11px]">'
+                + '<thead><tr class="text-left text-gray-500 text-[9px] tracking-widest sticky top-0 bg-white">'
+                +   '<th class="font-medium px-4 py-1.5">PARİTE</th>'
+                +   '<th class="font-medium px-2 py-1.5">YÖN</th>'
+                +   '<th class="font-medium px-2 py-1.5">MİKTAR</th>'
+                +   '<th class="font-medium px-2 py-1.5">FİYAT</th>'
+                +   '<th class="font-medium px-4 py-1.5">DURUM</th>'
+                +   '<th class="font-medium px-2 py-1.5 text-right"></th>'
+                + '</tr></thead>'
+                + '<tbody>' + rows + '</tbody>'
+                + '</table>';
+        }
+
         // --- AI Kalkanı (Görünmez Kalkan Raporu) ---
         var INTERVENTION_TYPE_LABELS = {
             MTF_TUZAK: 'Trend Tuzağı',
@@ -3626,6 +3714,7 @@ $openSettingsModal = !empty($successMessage) || !empty($errorMessage) || !empty(
             fetchPortfolio();
             fetchScanStatus();
             fetchSystemStatus(false);
+            fetchRecentOrders();
 
             // Ozel Grafik/Teknik Analiz/Kayan Bant motoru (Binance public REST/WS - bkz. loadChart yorumu)
             initTickerTape();
@@ -3644,6 +3733,10 @@ $openSettingsModal = !empty($successMessage) || !empty($errorMessage) || !empty(
             setInterval(fetchPnl,               60000);
             setInterval(fetchPortfolio,         30000);
             setInterval(fetchScanStatus,        60000);
+            // 30 Temmuz'da eklendi: "Son İşlemler" paneli eskiden SADECE ilk sayfa yuklemesinde
+            // PHP tarafinda dolduruluyordu (setInterval dongusune DAHIL degildi) - manuel kapatma
+            // gibi sayfa acikken olusan yeni bir siparis F5 atilmadan hic gorunmuyordu
+            setInterval(fetchRecentOrders,      30000);
             setInterval(function () { fetchSystemStatus(false); }, 60000);
             setInterval(refreshTickerTape,      5000);
             // 22 Temmuz'da eklendi: fetchRadar/fetchNews eskiden SADECE sayfa ilk acildiginda ve
@@ -3690,6 +3783,7 @@ $openSettingsModal = !empty($successMessage) || !empty($errorMessage) || !empty(
             fetchPortfolio();
             fetchScanStatus();
             fetchSystemStatus(false);
+            fetchRecentOrders();
         }
 
         document.addEventListener('visibilitychange', function() {

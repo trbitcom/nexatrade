@@ -2,6 +2,11 @@
 
 Bu dosya NexaTrade'in sürüm geçmişini tutar. Format [Keep a Changelog](https://keepachangelog.com/tr/1.0.0/) ilkelerini, sürümleme ise [Semantic Versioning](https://semver.org/lang/tr/) (Major.Minor.Patch) kurallarını izler.
 
+## [1.77.0] - 2026-07-30
+
+### Yeni Özellik
+- [DashboardController, dashboard/index.php] "Son İşlemler" paneli artık diğer paneller gibi sayfa yenilenmeden otomatik güncelleniyor (yeni `/api/dashboard/recent-orders` uç noktası, 30sn'de bir) - eskiden SADECE ilk sayfa yüklemesinde PHP tarafında dolduruluyordu, "Şimdi Kapat" gibi sayfa açıkken oluşan yeni bir sipariş F5 atılmadan hiç görünmüyordu (EULUSDT #229 manuel kapatma sonrası fark edildi).
+
 ## [1.76.2] - 2026-07-30
 
 ### Hata Düzeltme (Kritik)
