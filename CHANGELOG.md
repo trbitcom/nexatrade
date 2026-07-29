@@ -2,6 +2,11 @@
 
 Bu dosya NexaTrade'in sürüm geçmişini tutar. Format [Keep a Changelog](https://keepachangelog.com/tr/1.0.0/) ilkelerini, sürümleme ise [Semantic Versioning](https://semver.org/lang/tr/) (Major.Minor.Patch) kurallarını izler.
 
+## [1.76.1] - 2026-07-30
+
+### Hata Düzeltme
+- [AutoTradeController] `finalizeSpotClose()`'un Telegram bildirimi, kapanış sebebine bakmaksızın her zaman "(Kâr Al)"/"(Zarar Kes)" yazıyordu - müşterinin yeni "Şimdi Kapat" butonuyla (v1.76.0) manuel kapattığı bir pozisyon bile botun kendisi otomatik kapatmış gibi görünüyordu. Artık `$orderType==='manual_close'` ise mesaj açıkça "(Manuel Kapatma)" yazıyor.
+
 ## [1.76.0] - 2026-07-29
 
 ### Yeni Özellik

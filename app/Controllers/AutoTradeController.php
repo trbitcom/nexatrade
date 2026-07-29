@@ -2740,11 +2740,21 @@ final class AutoTradeController
         // burasi ise SADECE gercek fiyat verisine (zirve/dip) dayanir, asla patlamayan saf formatlama
         $diagnosticsSummary = $this->buildTradeDiagnosticsSummary($trade, $exitPrice, $pnlPercent, $isProfit);
 
+        // 30 Temmuz'da eklendi: eskiden bu etiket SADECE $isProfit'e bakiyordu (Kar Al/Zarar Kes),
+        // musterinin "Simdi Kapat" butonuyla manuel kapattigi bir pozisyon bile botun kendisi
+        // otomatik kapatmis gibi goruniyordu - yanlis izlenim verirdi. $orderType artik etikette de
+        // kullaniliyor, sadece Order tablosundaki 'type' kolonunda degil
+        $closeReasonLabel = match (true) {
+            $orderType === 'manual_close' => 'Manuel Kapatma',
+            $isProfit => 'Kâr Al',
+            default => 'Zarar Kes',
+        };
+
         $this->notifyCustomer($userId, sprintf(
             "%s [NexaTrade] Pozisyon Kapandı (%s)\nCoin: %s\nGiriş: %s → Çıkış: %s\n\n" .
             "Brüt Sonuç: %+.2f USDT\nBorsa Kesintisi (tahmini): -%.2f USDT\nNET SONUÇ: %+.2f USDT (%+.2f%%)\n\n📊 Teşhis:\n%s",
             $isProfit ? '✅' : '🔻',
-            $isProfit ? 'Kâr Al' : 'Zarar Kes',
+            $closeReasonLabel,
             $pair,
             $this->formatPrice($entryPrice),
             $this->formatPrice($exitPrice),
