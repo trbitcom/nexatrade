@@ -1,0 +1,18 @@
+# Dizin listelemeyi tamamen kapat (config/, app/ gibi klasorlerin icerigi tarayicida gorunmesin)
+Options -Indexes
+
+RewriteEngine On
+
+# Kaynak kod, konfigurasyon ve sema dosyalarina dogrudan HTTP erisimini engelle
+# 16 Temmuz'da tespit edildi: storage/ bu listede YOKTU - storage/logs/*.log dosyalari (binance_errors.log,
+# auto_trade.log vb.) gercek statik dosya olduklari icin (PHP degil, bu yuzden audit_v15.php'deki gibi bir
+# CLI korumasi hic mumkun degil) dogrudan URL ile kimlik dogrulamasiz herkese acik indirilebiliyordu
+RewriteRule ^(app|config|storage)(/.*)?$ - [F,L]
+RewriteRule ^database\.sql$ - [F,L]
+
+# Var olan gercek dosyalara (public/assets altindaki css/js/img gibi) dogrudan erisime izin ver
+RewriteCond %{REQUEST_FILENAME} -f
+RewriteRule ^ - [L]
+
+# Geriye kalan her istegi ("/" kok dizini dahil) public/index.php front controller'a yonlendir
+RewriteRule ^(.*)$ public/index.php [L,QSA]

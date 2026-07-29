@@ -1,0 +1,33 @@
+# Hassas konfigurasyon - gercek API anahtarlari/sifreler icerir, ASLA commit edilmez.
+# Yerine config/app.example.php ve config/database.example.php (placeholder degerlerle) commit edilir,
+# VPS'te bu dosyalar elle olusturulup doldurulur (bkz. CLAUDE.md "Ayar Deseni" ve gecis plani)
+config/app.php
+config/database.php
+
+# Runtime loglari - her serviste tekrarlanan storage/logs/{servis}_errors.log deseni, repo disi
+storage/logs/*.log
+storage/logs/*.txt
+
+# Composer/npm YOK ama Tailwind CLI icin node_modules var - kaynagi degil, derlenmis
+# public/assets/*.css ciktisi commit edilir (npm run build:css calistirilmadan sunucu calismaz diye)
+node_modules/
+
+# macOS/IDE ciktilari
+.DS_Store
+.claude/
+
+# Bayat/gecmis referans dokumanlari - CLAUDE.md'de zaten "guncel referans olarak kullanma" diye
+# isaretli, yeni repoya tasinmasina gerek yok
+SYSTEM_AUDIT.md
+PROJE_BRIFINGI_CHATGPT.md
+
+# Tek seferlik tanilama betikleri (kok dizine dusen check_*.php, audit_*.php vb.) - kullanilip
+# SILINMESI gereken dosyalar, repoya asla girmemeli (bkz. CLAUDE.md "Bilinen Riskler")
+/check_*.php
+/audit_*.php
+/clear_*.php
+
+# Editor/OS gecici dosyalari
+*.swp
+*.bak
+Thumbs.db

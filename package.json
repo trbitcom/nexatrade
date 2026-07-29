@@ -1,0 +1,12 @@
+{
+  "name": "nexatrade-assets",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Sadece derleme zamani icin: gorunum dosyalarindaki Tailwind siniflarini taratip statik/kucuk bir CSS dosyasi uretir (cdn.tailwindcss.com yerine)",
+  "scripts": {
+    "build:css": "tailwindcss -i ./assets/tailwind-input.css -o ./assets/css/tailwind.css --minify"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.19"
+  }
+}

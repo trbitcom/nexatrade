@@ -1,0 +1,15 @@
+{
+    "name": "NexaTrade Terminal",
+    "short_name": "NexaTrade",
+    "start_url": "/dashboard",
+    "display": "standalone",
+    "background_color": "#05060b",
+    "theme_color": "#05060b",
+    "icons": [
+        {
+            "src": "/assets/img/favicon.png",
+            "sizes": "128x128",
+            "type": "image/png"
+        }
+    ]
+}
