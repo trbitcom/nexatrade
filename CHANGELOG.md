@@ -2,6 +2,11 @@
 
 Bu dosya NexaTrade'in sürüm geçmişini tutar. Format [Keep a Changelog](https://keepachangelog.com/tr/1.0.0/) ilkelerini, sürümleme ise [Semantic Versioning](https://semver.org/lang/tr/) (Major.Minor.Patch) kurallarını izler.
 
+## [1.74.1] - 2026-07-29
+
+### Hata Düzeltme
+- [storage/logs] `.gitkeep` eklendi - Git boş klasörleri takip etmediği için her yeni `git clone` sonrası `storage/logs/` hiç oluşmuyordu, ilk cron çalıştırmasında "klasör yok" hatasına yol açıyordu (VPS ilk kurulumunda elle `mkdir` ile geçici çözülmüştü). Artık klasörün kendisi repoyla birlikte geliyor.
+
 ## [1.74.0] - 2026-07-29
 
 ### Yeni Özellik
