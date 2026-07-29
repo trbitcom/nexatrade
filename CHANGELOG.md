@@ -2,6 +2,13 @@
 
 Bu dosya NexaTrade'in sürüm geçmişini tutar. Format [Keep a Changelog](https://keepachangelog.com/tr/1.0.0/) ilkelerini, sürümleme ise [Semantic Versioning](https://semver.org/lang/tr/) (Major.Minor.Patch) kurallarını izler.
 
+## [1.75.0] - 2026-07-29
+
+### Yeni Özellik
+- [BacktestService] `runTrailingStopComparison()` eklendi - `AutoTradeController::applyTrailingStopIfEligible()`'daki gerçek çok aşamalı İzleyen Stop mantığını (Aşama 1 parametreli, Aşama 2 sabit %4/%2.5, Aşama 3 sabit %6/%4, ardından Sürekli İzleme) geçmiş veride simüle eder - `run()`'un basit sabit TP/SL modelinden tamamen farklı bir çıkış mantığı. Giriş taraması aynı `passesEntryFilters()` (yeni, `run()` ile paylaşılan) fonksiyonunu kullanır. Giriş sonrası dönem 15 dakikalık mumlarla simüle edilir (saatlik mum İzleyen Stop'un dar eşiklerini simüle etmek için çok kaba kalırdı) - bkz. dosya içi sınırlama notu (ATR çarpanı simüle edilmez, sonuç yön gösterici kabul edilmeli).
+- [scripts/compare_trailing_stops.php] Yeni CLI aracı - mevcut ve önerilen İzleyen Stop (Tetik/Kilit) parametrelerini 8 coin üzerinde yan yana karşılaştırır. "Gemini Altın Oran" önerisini (Tetik %2.0/Kilit %0.5) mevcut canlı ayarla (Tetik %1.5/Kilit %1.0) karşılaştırmak için eklendi.
+- **Not**: Yerel makineden test edilirken Binance'e aralıklı TLS bağlantı hataları yaşandı (yerel ağ/sistem kaynaklı, kodla ilgisi yok) - VPS'te çalıştırılması öneriliyor, orada bağlantı tüm oturum boyunca sorunsuzdu.
+
 ## [1.74.2] - 2026-07-29
 
 ### İyileştirme
