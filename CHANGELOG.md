@@ -2,6 +2,11 @@
 
 Bu dosya NexaTrade'in sürüm geçmişini tutar. Format [Keep a Changelog](https://keepachangelog.com/tr/1.0.0/) ilkelerini, sürümleme ise [Semantic Versioning](https://semver.org/lang/tr/) (Major.Minor.Patch) kurallarını izler.
 
+## [1.74.0] - 2026-07-29
+
+### Yeni Özellik
+- [AutoTradeController] OCO emri "The relationship of the prices for the orders is not correct" hatasıyla reddedildiğinde artık **3 aşamalı Acil Durum Protokolü** devreye giriyor (COTIUSDT canlı olayı sonrası): (1) güncel fiyat zaten Kâr Al seviyesini geçmişse veya (2) Zarar Kes'in %1 daha altına (şelale eşiği) düşmüşse, pozisyon beklemeden **piyasadan anında satılıp gerçek PNL ile kapatılır** (`finalizeSpotClose()` üzerinden) - önceki (v1.72.6) "tek başına Zarar Kes emri dene" yedeği artık SADECE fiyat bu iki uç durumun dışındaysa (normal aralıkta veya küçük bir iğne) çalışıyor. %1 marj kasıtlı: projenin "Ani Fitil Koruması" felsefesiyle tutarlı olsun, her ufak iğne anında panik satışı tetiklemesin diye eklendi.
+
 ## [1.73.2] - 2026-07-29
 
 ### Hata Düzeltme

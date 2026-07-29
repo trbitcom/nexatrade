@@ -225,6 +225,15 @@ final class AutoTradeController
     // bilinen/kabul edilmis bir odun
     private const WICK_SHIELD_MINUTES = 7;
 
+    // 29 Temmuz'da eklendi: OCO "relationship of the prices" hatasıyla reddedildiğinde (COTIUSDT
+    // canlı olayı - fiyat alım ile OCO gönderimi arasında bandın dışına çıkmıştı) çalışan Acil Durum
+    // Protokolü'nün "şelale" eşiği - bkz. protectPositionWithOco() yorumu. Guncel fiyat, Zarar Kes
+    // seviyesinin bu marj kadar DAHA da altındaysa bu bir igne degil gercek bir sert dususdur,
+    // ANINDA piyasadan satilir. Marj kasitli var: projedeki "Ani Fitil Korumasi" felsefesiyle
+    // (WICK_SHIELD_MULTIPLIER) tutarli olsun diye - SL'e degen HER fiyat aninda panik satisi
+    // tetiklemez, sadece gercekten onu da asan bir dusus tetikler
+    private const EMERGENCY_WATERFALL_MARGIN_PERCENT = 1.0;
+
     // --- ATR Bazlı Volatilite Çarpanı ---
     // 25 Temmuz'da eklendi: SADECE İzleyen Stop'un "Sınırsız İzleme" (continuous trailing) mesafesini
     // (trailing_distance_percent) piyasanın anlık volatilitesine göre esnetir - kullanıcının kendi
@@ -1935,10 +1944,96 @@ final class AutoTradeController
                 'entry_rsi_15m' => $entryRsi15m,
             ]);
 
+            // 29 Temmuz'da eklendi: Acil Durum Protokolü (Triage) - "relationship of the prices"
+            // hatasına ÖZEL, MIN_NOTIONAL gibi diğer OCO hatalarını ETKİLEMEZ (o ayrı bir dust/miktar
+            // sorunu). Bu hata SADECE fiyatin alim ile OCO gonderimi arasinda banttan cikmasi
+            // durumunda olusur - yani GUNCEL fiyati kontrol edip NEREDE oldugumuzu anlayabiliriz:
+            // zaten Kar Al'i gecmisse kari cebe indir, zaten sert bir selale ile Zarar Kes'in de
+            // altina dusmusse sermayeyi kurtar - ikisinde de asagidaki "tek basina Zarar Kes emri
+            // dene" adimini BEKLEMEDEN dogrudan piyasadan satilir (COTIUSDT canli olayindan sonra
+            // eklendi - bkz. konusma gecmisi)
+            $emergencyClosed = false;
+
+            if (str_contains($ocoResult['error'], 'relationship of the prices')) {
+                try {
+                    $currentPrice = (new BinanceService('', ''))->getPrice($pair);
+                } catch (Throwable $e) {
+                    $currentPrice = 0.0;
+                }
+
+                $waterfallThreshold = $stopTriggerPrice * (1 - self::EMERGENCY_WATERFALL_MARGIN_PERCENT / 100);
+                $priceAlreadyPastTp = $currentPrice > 0 && $currentPrice >= $takeProfitPrice;
+                $priceInWaterfall = $currentPrice > 0 && $currentPrice <= $waterfallThreshold;
+
+                if ($priceAlreadyPastTp || $priceInWaterfall) {
+                    try {
+                        $marketSellResult = $binance->placeOrder($pair, 'SELL', 'MARKET', $ocoQuantity);
+
+                        if ($marketSellResult['success']) {
+                            $raw = $marketSellResult['raw'] ?? [];
+                            $executedQty = (float) ($raw['executedQty'] ?? $ocoQuantity);
+                            $cumulativeQuote = (float) ($raw['cummulativeQuoteQty'] ?? 0);
+                            $exitPrice = $executedQty > 0 ? $cumulativeQuote / $executedQty : $currentPrice;
+                            $exitTotal = $cumulativeQuote > 0 ? $cumulativeQuote : $exitPrice * $executedQty;
+
+                            $this->finalizeSpotClose(
+                                $binance,
+                                [
+                                    'id' => $activeTradeId,
+                                    'user_id' => $userId,
+                                    'pair' => $pair,
+                                    'entry_price' => $entryPrice,
+                                    'buy_order_id' => $buyOrderId,
+                                    'highest_price_reached' => null,
+                                    'lowest_price_reached' => null,
+                                ],
+                                $exitPrice,
+                                $executedQty,
+                                $exitTotal,
+                                $marketSellResult['order_id'] !== null ? (int) $marketSellResult['order_id'] : null,
+                                'market_emergency'
+                            );
+
+                            $this->logAutomationError(sprintf(
+                                'ACİL DURUM PROTOKOLÜ: Kullanıcı #%d %s - OCO fiyat bandı reddi sonrası %s tespit edildi (güncel: %s, Kâr Al: %s, Zarar Kes: %s) - piyasadan anında satıldı, çıkış: %s.',
+                                $userId,
+                                $pair,
+                                $priceAlreadyPastTp ? 'fiyat Kâr Al seviyesini geçmiş' : sprintf('şelale düşüşü (Zarar Kes\'in %%%.1f altı)', self::EMERGENCY_WATERFALL_MARGIN_PERCENT),
+                                $this->formatPrice($currentPrice),
+                                $this->formatPrice($takeProfitPrice),
+                                $this->formatPrice($stopTriggerPrice),
+                                $this->formatPrice($exitPrice)
+                            ));
+
+                            $this->notifyAdminAndCustomer(
+                                $userId,
+                                sprintf(
+                                    "🚨 Acil Durum Protokolü Devrede\nCoin: %s\nOCO reddedildi (fiyat bandın dışına çıktı), pozisyon %s ile anında piyasadan kapatıldı.\nÇıkış: %s",
+                                    $pair,
+                                    $priceAlreadyPastTp ? 'kârda' : 'şelale düşüşünde',
+                                    $this->formatPrice($exitPrice)
+                                )
+                            );
+
+                            $emergencyClosed = true;
+                        } else {
+                            $this->logAutomationError("ACİL DURUM PROTOKOLÜ: Kullanıcı #{$userId} {$pair} - piyasa satışı da başarısız: " . ($marketSellResult['error'] ?? 'bilinmeyen hata'));
+                        }
+                    } catch (Throwable $e) {
+                        $this->logAutomationError("ACİL DURUM PROTOKOLÜ: Kullanıcı #{$userId} {$pair} - piyasa satışı sırasında istisna: " . $e->getMessage());
+                    }
+                }
+            }
+
+            if ($emergencyClosed) {
+                return;
+            }
+
             // 28 Temmuz'da eklendi: COTIUSDT canlı olayı (2 kullanıcı aynı anda) - OCO'nun "relationship
             // of the prices" hatasıyla reddedilmesinin tipik sebebi, alım ile OCO gönderimi arasındaki
             // saniyelerde fiyatın zaten entryPrice'a göre hesaplanan Kar Al/Zarar Kes bandının DIŞINA
-            // çıkmış olması (hızlı hareket eden düşük hacimli coin). Pes etmeden ÖNCE, GÜNCEL fiyattan
+            // çıkmış olması (hızlı hareket eden düşük hacimli coin). Yukarıdaki Acil Durum Protokolü
+            // devreye girmediyse (fiyat hâlâ TP/SL aralığında, sadece küçük bir iğne), GÜNCEL fiyattan
             // hesaplanmış TEK BAŞINA bir Zarar Kes emri denenir - OCO'dan farklı olarak Binance'in
             // "relationship" kısıtı yok, tek koşul stopPrice güncel fiyatın altında olması. Başarılı
             // olursa pozisyon en azından asagi yonde korunur (Kar Al otomasyonu bu turda yok, sonraki
