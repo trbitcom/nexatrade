@@ -133,7 +133,7 @@ CREATE TABLE IF NOT EXISTS `known_symbols` (
     `first_seen_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `is_bootstrap` TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Ilk kurulumda taban olarak kaydedildi mi (gercek yeni listeleme degil)',
     `status` VARCHAR(20) NULL COMMENT 'Binance exchangeInfo son bilinen durumu (TRADING/PRE_TRADING/BREAK vb.)',
-    `expected_start_time` TIMESTAMP NULL COMMENT 'Duyuru Avcisi'nin bu sembolu ILK KEZ PRE_TRADING/BREAK durumunda gordugu an - Binance ileri tarihli kesin bir listelenme saati sunmadigi icin bu, "izlemeye ne zaman basladik" anlamina gelir, kesin tahmin degil',
+    `expected_start_time` TIMESTAMP NULL COMMENT 'Duyuru Avcisi''nin bu sembolu ILK KEZ PRE_TRADING/BREAK durumunda gordugu an - Binance ileri tarihli kesin bir listelenme saati sunmadigi icin bu, "izlemeye ne zaman basladik" anlamina gelir, kesin tahmin degil',
     `sniper_status` VARCHAR(20) NULL COMMENT 'Duyuru Avcisi is akisi: pending (TRADING olmasi bekleniyor) | executed (alim yapildi) | failed (suresi doldu/basarisiz)',
     PRIMARY KEY (`symbol`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

@@ -2,6 +2,11 @@
 
 Bu dosya NexaTrade'in sürüm geçmişini tutar. Format [Keep a Changelog](https://keepachangelog.com/tr/1.0.0/) ilkelerini, sürümleme ise [Semantic Versioning](https://semver.org/lang/tr/) (Major.Minor.Patch) kurallarını izler.
 
+## [1.73.1] - 2026-07-29
+
+### Hata Düzeltme
+- [database.sql] `known_symbols.expected_start_time` sütununun `COMMENT` metnindeki kaçırılmamış kesme işareti (`Avcisi'nin` → `Avcisi''nin`) düzeltildi - VPS'e ilk kurulumda dosyayı sıfırdan (`mysql < database.sql`) içeri alırken bu satırdan itibaren tüm importu bozan bir sözdizimi hatasına yol açıyordu. Canlı cPanel sunucusunda fark edilmemişti çünkü şema orada zaten satır satır, aşamalı olarak kurulmuştu.
+
 ## [1.73.0] - 2026-07-28
 
 ### Yeni Özellik (VPS/Git geçişine hazırlık)
