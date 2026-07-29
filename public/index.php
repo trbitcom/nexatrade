@@ -119,6 +119,7 @@ $router->get('/api/dashboard/system-status', [DashboardController::class, 'apiSy
 $router->get('/api/dashboard/performance-breakdown', [DashboardController::class, 'apiPerformanceBreakdown']);
 $router->post('/api/dashboard/clear-cooldown', [DashboardController::class, 'apiClearSymbolCooldown']);
 $router->post('/api/dashboard/toggle-kill-switch', [DashboardController::class, 'apiToggleKillSwitch']);
+$router->post('/api/dashboard/close-position', [DashboardController::class, 'apiClosePosition']);
 $router->post('/api/settings/risk-profile', [DashboardController::class, 'apiRiskProfile']);
 
 // Admin paneli (AuthMiddleware::requireAdmin ile korunur, sadece role='admin')

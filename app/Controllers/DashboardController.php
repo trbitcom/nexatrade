@@ -1420,6 +1420,79 @@ final class DashboardController
         }
     }
 
+    // "Aktif Avlar" panelindeki manuel "Şimdi Kapat" butonu (30 Temmuz'da eklendi) - müşteri
+    // yüksek bir kâr görüp otomatik hedefi (İzleyen Stop/Kâr Al) beklemeden anında piyasadan
+    // satıp kilitlemek isteyebilir. Mevcut koruma emrini (OCO veya Kâr Al Tavanı Kaldırılmışsa
+    // tekil Zarar Kes) iptal edip piyasadan satar, ardından AutoTradeController::finalizeSpotClose()
+    // ile AYNI mekanizmayla (gerçek PNL/loglama/bildirim/soğuma) kapatır - koddaki TEK kapanış
+    // yolu burada TEKRAR YAZILMAZ, doğrudan çağrılır
+    public function apiClosePosition(): void
+    {
+        $userId = $this->requireAjaxAuth();
+        if ($userId === null) {
+            return;
+        }
+
+        header('Content-Type: application/json');
+
+        try {
+            $tradeId = (int) ($_POST['trade_id'] ?? 0);
+            $trade = ActiveTrade::findById($tradeId);
+
+            if ($trade === null || (int) $trade['user_id'] !== $userId || $trade['status'] !== 'open') {
+                echo json_encode(['success' => false, 'message' => 'Pozisyon bulunamadı veya zaten kapalı'], JSON_UNESCAPED_UNICODE);
+                return;
+            }
+
+            $apiKeys = ApiKey::findByUser($userId);
+
+            if ($apiKeys === []) {
+                echo json_encode(['success' => false, 'message' => 'API anahtarı bulunamadı'], JSON_UNESCAPED_UNICODE);
+                return;
+            }
+
+            $binance = new BinanceService($apiKeys[0]['api_key'], $apiKeys[0]['secret_key']);
+            $pair = (string) $trade['pair'];
+            $quantity = (float) $trade['quantity'];
+
+            // Mevcut korumayi iptal et - OCO ya da (Kar Al Tavani Kaldirilmissa) tekil Zarar Kes.
+            // Ikisi de yoksa (zaten korumasiz kalmis bir pozisyon) dogrudan satisa gecilir
+            if ($trade['oco_order_list_id'] !== null) {
+                $binance->cancelOcoOrder($pair, (int) $trade['oco_order_list_id']);
+            } elseif ($trade['stop_loss_order_id'] !== null) {
+                $binance->cancelOrder($pair, (int) $trade['stop_loss_order_id']);
+            }
+
+            $marketSellResult = $binance->placeOrder($pair, 'SELL', 'MARKET', $quantity);
+
+            if (!$marketSellResult['success']) {
+                echo json_encode(['success' => false, 'message' => 'Piyasa satışı başarısız: ' . $marketSellResult['error']], JSON_UNESCAPED_UNICODE);
+                return;
+            }
+
+            $raw = $marketSellResult['raw'] ?? [];
+            $executedQty = (float) ($raw['executedQty'] ?? $quantity);
+            $cumulativeQuote = (float) ($raw['cummulativeQuoteQty'] ?? 0);
+            $exitPrice = $executedQty > 0 ? $cumulativeQuote / $executedQty : 0.0;
+            $exitTotal = $cumulativeQuote > 0 ? $cumulativeQuote : $exitPrice * $executedQty;
+
+            (new AutoTradeController())->finalizeSpotClose(
+                $binance,
+                $trade,
+                $exitPrice,
+                $executedQty,
+                $exitTotal,
+                $marketSellResult['order_id'] !== null ? (int) $marketSellResult['order_id'] : null,
+                'manual_close'
+            );
+
+            echo json_encode(['success' => true, 'exit_price' => $exitPrice], JSON_UNESCAPED_UNICODE);
+        } catch (Throwable $e) {
+            error_log('[apiClosePosition] ' . $e->getMessage());
+            echo json_encode(['success' => false, 'message' => 'Pozisyon kapatılamadı'], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
     // "Sistem Durumu" widget'i: her otonom modulun gercekten canli olup olmadigini (son calisma
     // zamani), bu kullanicinin devre kesici durumunu ve log dosyalarindaki son kritik hatalari tek
     // istekte doner - onceden bunlarin hepsi cPanel Terminal'e girip elle log/DB sorgulamayi

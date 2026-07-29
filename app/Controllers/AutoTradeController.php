@@ -2632,8 +2632,11 @@ final class AutoTradeController
     // Kapanan bir SPOT pozisyon icin ORTAK kapanis mantigi: Order kaydi olusturur, GERCEK PNL
     // isaretine gore status/soguma/post-mortem/bildirim uygular, komisyonu (myTrades'ten) ogrenir.
     // Hem klasik OCO bacak kapanisindan hem Kar Al Tavani Kaldirilmis (SL-only) kapanisindan
-    // cagrilir - KRITIK DUZELTME (22 Temmuz, status artik GERCEK PNL'e gore) TEK yerde yasar
-    private function finalizeSpotClose(
+    // cagrilir - KRITIK DUZELTME (22 Temmuz, status artik GERCEK PNL'e gore) TEK yerde yasar.
+    // 30 Temmuz'da public'e cevrildi: DashboardController::apiClosePosition() (musterinin manuel
+    // "Şimdi Kapat" butonu) AYNI kapanis mantigini (PNL/loglama/bildirim/soguma) TEKRAR YAZMAK
+    // yerine bu metodu dogrudan cagirir - koddaki TEK kapanis yolu bolunmez
+    public function finalizeSpotClose(
         BinanceService $binance,
         array $trade,
         float $exitPrice,

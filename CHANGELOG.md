@@ -2,6 +2,11 @@
 
 Bu dosya NexaTrade'in sürüm geçmişini tutar. Format [Keep a Changelog](https://keepachangelog.com/tr/1.0.0/) ilkelerini, sürümleme ise [Semantic Versioning](https://semver.org/lang/tr/) (Major.Minor.Patch) kurallarını izler.
 
+## [1.76.0] - 2026-07-29
+
+### Yeni Özellik
+- [Dashboard] "Aktif Avlar" panelindeki açık pozisyon kartlarına manuel **"✕ Şimdi Kapat"** butonu eklendi - müşteri otomatik Kâr Al/İzleyen Stop hedefini beklemeden, gördüğü anlık kâr/zararla pozisyonu piyasadan anında kapatabilir. Onay penceresi ("bu işlem geri alınamaz") ile korunuyor. Backend: `DashboardController::apiClosePosition()` mevcut korumayı (OCO veya SL-only) iptal edip piyasadan satıyor, ardından `AutoTradeController::finalizeSpotClose()` (artık `public`) ile AYNI kapanış mekanizmasını (gerçek PNL/loglama/bildirim/soğuma) çağırıyor - kapanış mantığı ikinci kez yazılmadı.
+
 ## [1.75.3] - 2026-07-29
 
 ### Hata Düzeltme

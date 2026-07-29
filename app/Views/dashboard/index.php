@@ -885,7 +885,10 @@ $openSettingsModal = !empty($successMessage) || !empty($errorMessage) || !empty(
                                 <?php endif; ?>
                                 </span>
                             </div>
-                            <button type="button" onclick="openLiveChart(<?= $tradeId ?>)" class="w-full mt-1 font-mono-tech text-[9px] text-cyan-600 border border-cyan-400/30 rounded px-1.5 py-0.5 hover:bg-cyan-400/10 transition-colors">📈 Canlı İzle</button>
+                            <div class="flex gap-1 mt-1">
+                                <button type="button" onclick="openLiveChart(<?= $tradeId ?>)" class="flex-1 font-mono-tech text-[9px] text-cyan-600 border border-cyan-400/30 rounded px-1.5 py-0.5 hover:bg-cyan-400/10 transition-colors">📈 Canlı İzle</button>
+                                <button type="button" onclick="closePositionNow(<?= $tradeId ?>, '<?= htmlspecialchars((string) $trade['pair'], ENT_QUOTES, 'UTF-8') ?>')" class="flex-1 font-mono-tech text-[9px] text-rose-600 border border-rose-400/30 rounded px-1.5 py-0.5 hover:bg-rose-400/10 transition-colors">✕ Şimdi Kapat</button>
+                            </div>
                             <!-- Anlik fiyat/ilerleme/Izleyen Zirh durumu (Binance sorgusu gerektirir) sayfa
                                  acildiktan SONRA JS ile /api/dashboard/hunts uzerinden doldurulur/guncellenir -->
                             <div data-trade-progress="<?= $tradeId ?>">
@@ -2300,6 +2303,35 @@ $openSettingsModal = !empty($successMessage) || !empty($errorMessage) || !empty(
                 });
         }
 
+        // 30 Temmuz'da eklendi: "Aktif Avlar" karti uzerindeki manuel "Simdi Kapat" butonu -
+        // musteri otomatik hedefi beklemeden ANINDA piyasadan satip kilitlemek istediginde
+        function closePositionNow(tradeId, pair) {
+            if (!confirm(pair + ' pozisyonunu ŞİMDİ piyasa fiyatından kapatmak istediğine emin misin? Bu işlem GERİ ALINAMAZ.')) return;
+
+            var formData = new URLSearchParams();
+            formData.append('trade_id', tradeId);
+
+            fetch(_BASE + '/api/dashboard/close-position', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: formData.toString()
+            })
+                .then(function (r) { return r.json(); })
+                .then(function (d) {
+                    if (d.success) {
+                        showToast(pair + ' kapatıldı ($' + parseFloat(d.exit_price).toFixed(6) + ')', true);
+                        fetchActiveTrades();
+                        fetchPnl();
+                        fetchBalance();
+                    } else {
+                        showToast(d.message || 'Pozisyon kapatılamadı', false);
+                    }
+                })
+                .catch(function () {
+                    showToast('Pozisyon kapatılamadı', false);
+                });
+        }
+
         function renderSystemStatusBody(d) {
             var moduleRows = Object.keys(d.modules).map(function (key) {
                 var m = d.modules[key];
@@ -3093,7 +3125,10 @@ $openSettingsModal = !empty($successMessage) || !empty($errorMessage) || !empty(
                     + '<span class="font-mono-tech text-[10px] text-emerald-600">TP ' + fmt$(t.take_profit_price) + '</span>'
                     + '</span>'
                     + '</div>'
-                    + '<button type="button" onclick="openLiveChart(' + id + ')" class="w-full mt-1 font-mono-tech text-[9px] text-cyan-600 border border-cyan-400/30 rounded px-1.5 py-0.5 hover:bg-cyan-400/10 transition-colors">📈 Canlı İzle</button>'
+                    + '<div class="flex gap-1 mt-1">'
+                    + '<button type="button" onclick="openLiveChart(' + id + ')" class="flex-1 font-mono-tech text-[9px] text-cyan-600 border border-cyan-400/30 rounded px-1.5 py-0.5 hover:bg-cyan-400/10 transition-colors">📈 Canlı İzle</button>'
+                    + '<button type="button" onclick="closePositionNow(' + id + ', \'' + (t.pair || '') + '\')" class="flex-1 font-mono-tech text-[9px] text-rose-600 border border-rose-400/30 rounded px-1.5 py-0.5 hover:bg-rose-400/10 transition-colors">✕ Şimdi Kapat</button>'
+                    + '</div>'
                     + '<div data-trade-progress="' + id + '">'
                     + '<p class="font-mono-tech text-[10px] text-gray-500 mt-1">fiyat yükleniyor...</p>'
                     + '</div>';
