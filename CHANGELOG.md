@@ -2,6 +2,12 @@
 
 Bu dosya NexaTrade'in sürüm geçmişini tutar. Format [Keep a Changelog](https://keepachangelog.com/tr/1.0.0/) ilkelerini, sürümleme ise [Semantic Versioning](https://semver.org/lang/tr/) (Major.Minor.Patch) kurallarını izler.
 
+## [1.73.2] - 2026-07-29
+
+### Hata Düzeltme
+- [database.sql] `active_futures_trades` ve `pending_signals` tabloları için toplam 3 `ALTER TABLE` migrasyon bloğu, kendi `CREATE TABLE`'larından ÖNCE yer alıyordu - dosyayı sıfırdan tek seferde (`mysql < database.sql`) baştan sona çalıştırınca "tablo bulunamadı" hatasına yol açıyordu. Bloklar kendi tablolarının `CREATE TABLE`'ından SONRAYA taşındı, tüm dosya artık yeniden doğrulandı (script ile taranıp başka sıralama hatası kalmadığı teyit edildi). Canlı cPanel sunucusunda fark edilmemişti çünkü şema orada aşamalı/kronolojik olarak kurulmuştu, hiçbir zaman tek seferde baştan çalıştırılmamıştı.
+- **VPS geçişi notu**: `ADD COLUMN IF NOT EXISTS` söz dizimi MariaDB'ye özgüdür, gerçek Oracle MySQL bunu desteklemez - VPS'e MySQL yerine MariaDB kurulması gerektiği bu süreçte tespit edildi (bkz. sohbet geçmişi).
+
 ## [1.73.1] - 2026-07-29
 
 ### Hata Düzeltme

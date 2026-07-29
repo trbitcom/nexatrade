@@ -370,14 +370,6 @@ ALTER TABLE `active_trades`
     ADD COLUMN IF NOT EXISTS `ai_entry_score` TINYINT UNSIGNED NULL;
 
 -- --------------------------------------------------------
--- Migrasyon: Futures (KISA) pozisyonlar icin Izleyen Stop - spot active_trades'teki AYNI
--- trailing_stop_stage semantigi, lowest_price_seen ise SHORT icin highest_price_seen'in TERSI
--- --------------------------------------------------------
-ALTER TABLE `active_futures_trades`
-    ADD COLUMN IF NOT EXISTS `trailing_stop_stage` TINYINT UNSIGNED NOT NULL DEFAULT 0,
-    ADD COLUMN IF NOT EXISTS `lowest_price_seen` DECIMAL(20,8) NULL;
-
--- --------------------------------------------------------
 -- Migrasyon: Izleyen Stop parametrelerini (spot + futures, AYRI kolon setleri) sabit kodlanmis
 -- class const'lardan veritabanina tasir - kullanici artik Dashboard'dan kendi tetik/kilit/izleme
 -- yuzdelerini duzenleyebilir. Varsayilanlar, eski AutoTradeController::TRAILING_STOP_STAGES /
@@ -393,23 +385,6 @@ ALTER TABLE `user_api_keys`
     ADD COLUMN IF NOT EXISTS `futures_trailing_trigger_percent` DECIMAL(5,2) NOT NULL DEFAULT 1.00,
     ADD COLUMN IF NOT EXISTS `futures_trailing_lock_percent` DECIMAL(5,2) NOT NULL DEFAULT 0.20,
     ADD COLUMN IF NOT EXISTS `futures_trailing_distance_percent` DECIMAL(5,2) NOT NULL DEFAULT 1.00;
-
--- --------------------------------------------------------
--- Migrasyon: Ardisik Cift Onay'i zamana dayali (first_seen_at + sabit saniye) mimariden tur
--- tabanli (pass_count) mimariye gecirir - bkz. pending_signals tablo yorumu (21 Temmuz).
--- first_seen_at/last_validated_at SUTUNLARI KALDIRILMAZ (guvenlik agi/GC icin hala kullanilir)
--- --------------------------------------------------------
-ALTER TABLE `pending_signals`
-    ADD COLUMN IF NOT EXISTS `pass_count` TINYINT UNSIGNED NOT NULL DEFAULT 1;
-
--- --------------------------------------------------------
--- Migrasyon: Pullback Kalkani'nin (Anti-FOMO Freni #2) kor noktasi icin kacis supabi - canli
--- veride (25 Temmuz, BANKUSDT) kesintisiz/duz yukselen bir coinin 5+ ardisik turda teknik skoru
--- 100'e ragmen HICBIR ZAMAN gerilememesi gozlemlendi. pass_count'tan (Ardisik Cift Onay) TAMAMEN
--- AYRI bir sayac - bkz. PendingSignal::recordPullbackFailure() yorumu
--- --------------------------------------------------------
-ALTER TABLE `pending_signals`
-    ADD COLUMN IF NOT EXISTS `pullback_fail_count` TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT 'Ayni sembolun art arda kac kez Pullback Kalkani''na takildigi - esigi asinca kacis supabi tetiklenir';
 
 -- --------------------------------------------------------
 -- Tablo: symbol_cooldowns
@@ -489,6 +464,23 @@ CREATE TABLE IF NOT EXISTS `pending_signals` (
     UNIQUE KEY `uq_pending_signals_symbol` (`symbol`),
     KEY `idx_pending_signals_first_seen` (`first_seen_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+-- Migrasyon: Ardisik Cift Onay'i zamana dayali (first_seen_at + sabit saniye) mimariden tur
+-- tabanli (pass_count) mimariye gecirir - bkz. pending_signals tablo yorumu (21 Temmuz).
+-- first_seen_at/last_validated_at SUTUNLARI KALDIRILMAZ (guvenlik agi/GC icin hala kullanilir)
+-- --------------------------------------------------------
+ALTER TABLE `pending_signals`
+    ADD COLUMN IF NOT EXISTS `pass_count` TINYINT UNSIGNED NOT NULL DEFAULT 1;
+
+-- --------------------------------------------------------
+-- Migrasyon: Pullback Kalkani'nin (Anti-FOMO Freni #2) kor noktasi icin kacis supabi - canli
+-- veride (25 Temmuz, BANKUSDT) kesintisiz/duz yukselen bir coinin 5+ ardisik turda teknik skoru
+-- 100'e ragmen HICBIR ZAMAN gerilememesi gozlemlendi. pass_count'tan (Ardisik Cift Onay) TAMAMEN
+-- AYRI bir sayac - bkz. PendingSignal::recordPullbackFailure() yorumu
+-- --------------------------------------------------------
+ALTER TABLE `pending_signals`
+    ADD COLUMN IF NOT EXISTS `pullback_fail_count` TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT 'Ayni sembolun art arda kac kez Pullback Kalkani''na takildigi - esigi asinca kacis supabi tetiklenir';
 
 -- --------------------------------------------------------
 -- Tablo: pending_limit_orders
@@ -601,6 +593,14 @@ ALTER TABLE `active_trades`
 ALTER TABLE `active_futures_trades`
     ADD COLUMN IF NOT EXISTS `initial_take_profit_price` DECIMAL(20,8) NULL COMMENT 'Giris aninda belirlenen Kar Al fiyati - Izleyen Stop asla degismez',
     ADD COLUMN IF NOT EXISTS `initial_stop_loss_price` DECIMAL(20,8) NULL COMMENT 'Giris aninda belirlenen Zarar Kes fiyati - Izleyen Stop asla degismez';
+
+-- --------------------------------------------------------
+-- Migrasyon: Futures (KISA) pozisyonlar icin Izleyen Stop - spot active_trades'teki AYNI
+-- trailing_stop_stage semantigi, lowest_price_seen ise SHORT icin highest_price_seen'in TERSI
+-- --------------------------------------------------------
+ALTER TABLE `active_futures_trades`
+    ADD COLUMN IF NOT EXISTS `trailing_stop_stage` TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS `lowest_price_seen` DECIMAL(20,8) NULL;
 
 -- --------------------------------------------------------
 -- Migrasyon: Komisyon Takibi (22 Temmuz) - bugune kadar hicbir PNL hesabi Binance islem
