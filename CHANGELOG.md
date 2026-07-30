@@ -2,6 +2,11 @@
 
 Bu dosya NexaTrade'in sürüm geçmişini tutar. Format [Keep a Changelog](https://keepachangelog.com/tr/1.0.0/) ilkelerini, sürümleme ise [Semantic Versioning](https://semver.org/lang/tr/) (Major.Minor.Patch) kurallarını izler.
 
+## [1.77.1] - 2026-07-31
+
+### Hata Düzeltme
+- [AutoTradeController] Dolmadan iptal edilen (kullanıcının Binance üzerinden ELLE iptal ettiği durumlar dahil) bekleyen limit alım emirlerine artık 1 saatlik kısa bir sembol soğuması uygulanıyor - eskiden hiç uygulanmıyordu, bu yüzden kullanıcı bakiyesi kilitlendiği için bir emri iptal ettiğinde, coin hâlâ sinyal veriyorsa bot bir sonraki tarama turunda aynı pariteye hemen tekrar emir koyuyordu ("iptal ediyorum tekrar atıyor" döngüsü, EULUSDT üzerinde canlı gözlemlendi).
+
 ## [1.77.0] - 2026-07-30
 
 ### Yeni Özellik

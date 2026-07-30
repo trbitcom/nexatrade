@@ -124,6 +124,16 @@ final class AutoTradeController
     // bekle" dengesini kurar
     private const PENDING_LIMIT_ORDER_TIMEOUT_MINUTES = 15;
 
+    // 31 Temmuz'da eklendi: bir bekleyen limit alis emri hic dolmadan iptal edilirse (kullanicinin
+    // Binance uzerinden ELLE iptali DAHIL - checkPendingLimitOrders() bunu her Fast Tracker turunde
+    // ayrica tespit eder) bu sembole KISA bir soguma uygulanir. Eskiden hicbir soguma yoktu: kullanici
+    // bakiyesi kilitlendigi icin emri elle iptal ediyor, ama coin hala AI Avci'nin giris sartlarini
+    // karsiliyorsa bir sonraki tarama turunde AYNI pariteye tekrar emir konuyor, kullanici "iptal
+    // ediyorum tekrar atiyor" dongusune giriyordu. Zarar Kes'in 24 saatlik sogumasindan (gercek bir
+    // zarar sonrasi) BILEREK cok daha kisa - burada henuz gerceklesmis bir islem/zarar yok, sadece
+    // giris denemesi yarim kaldi
+    private const PENDING_LIMIT_ORDER_CANCEL_COOLDOWN_HOURS = 1;
+
     // "Pusu" (ambush) kurtarma: GPT skoru global baraji GECEMEYEN ama en fazla bu kadar puan
     // altinda kalan (ör. baraj 70 ise, 55-70 arasi) TEK bir aday icin, 5dk/15dk grafikte net bir
     // "RSI dipten donus + MACD erken AL" sinyali varsa bagimsiz 2. onay kapisindan gecirilir.
@@ -2185,8 +2195,12 @@ final class AutoTradeController
 
                 if (in_array($status, ['CANCELED', 'EXPIRED', 'REJECTED'], true)) {
                     // Emir Binance tarafinda (ör. elle iptal, borsa kurallari) zaten sona ermis -
-                    // bizim iptal etmemize gerek yok, sadece kaydi temizle
-                    $this->logAutomationError("Bekleyen limit emri: {$pair} (Kullanıcı #{$userId}) Binance'te {$status} durumunda - kayıt temizlendi.");
+                    // bizim iptal etmemize gerek yok, sadece kaydi temizle. Kisa bir soguma da
+                    // uygulanir (bkz. PENDING_LIMIT_ORDER_CANCEL_COOLDOWN_HOURS yorumu) - aksi halde
+                    // kullanicinin ELLE iptal ettigi bir emir, coin hala sinyal veriyorsa bir sonraki
+                    // turde hemen tekrar acilirdi
+                    $this->logAutomationError("Bekleyen limit emri: {$pair} (Kullanıcı #{$userId}) Binance'te {$status} durumunda - kayıt temizlendi, kısa soğuma uygulandı.");
+                    SymbolCooldown::setCooldown($userId, $pair, self::PENDING_LIMIT_ORDER_CANCEL_COOLDOWN_HOURS, 'Bekleyen limit emri dolmadan sona erdi (' . $status . ')');
                     PendingLimitOrder::delete($pendingId);
                     continue;
                 }
@@ -2218,11 +2232,12 @@ final class AutoTradeController
                     $this->convertFilledPendingOrder($binance, $pending, $cancelResult['raw']);
                 } else {
                     $this->logAutomationError(sprintf(
-                        'Bekleyen limit emri: %s (Kullanıcı #%d) süresi doldu (%d dk), hiç dolmadan iptal edildi.',
+                        'Bekleyen limit emri: %s (Kullanıcı #%d) süresi doldu (%d dk), hiç dolmadan iptal edildi, kısa soğuma uygulandı.',
                         $pair,
                         $userId,
                         self::PENDING_LIMIT_ORDER_TIMEOUT_MINUTES
                     ));
+                    SymbolCooldown::setCooldown($userId, $pair, self::PENDING_LIMIT_ORDER_CANCEL_COOLDOWN_HOURS, 'Bekleyen limit emri süresi dolup hiç dolmadan iptal edildi');
                 }
 
                 PendingLimitOrder::delete($pendingId);
