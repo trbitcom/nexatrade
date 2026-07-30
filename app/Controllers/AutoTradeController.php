@@ -2970,14 +2970,79 @@ final class AutoTradeController
 
         $chatId = User::findTelegramChatId($userId);
 
-        if ($chatId !== null) {
-            $this->telegram->notifyUser($chatId, sprintf(
-                "📈 %s yükselişte! (+%%%.1f)\nGiriş: $%s\nGüncel: $%s\n\nİsterseniz dashboard'dan \"Şimdi Kapat\" ile manuel kâr alabilirsiniz - bot otomatik stratejisine (İzleyen Stop) devam ediyor, bu sadece bilgilendirmedir.",
-                $changePercent,
-                $pair,
-                $this->formatPrice($entryPrice),
-                $this->formatPrice($currentPrice)
-            ));
+        if ($chatId === null) {
+            return;
+        }
+
+        $message = sprintf(
+            "📈 %s yükselişte! (+%%%.1f)\nGiriş: $%s\nGüncel: $%s",
+            $pair,
+            $changePercent,
+            $this->formatPrice($entryPrice),
+            $this->formatPrice($currentPrice)
+        );
+
+        // Musteri talebi (31 Temmuz): "sadece yuzde degil, NEDEN yukseliyor da bileyim" - AI/OpenAI
+        // MALIYETI OLMADAN (SentimentService/GPT'ye HIC dokunulmaz), TechnicalScoreEngine'in zaten
+        // tarama turunde adaylar icin urettigi AYNI deterministik RSI/MACD/hacim gerekcesi burada
+        // acik pozisyon icin de uretilir. Herhangi bir adimi basarisiz olursa (ör. Binance yavas
+        // yanit verirse) SESSIZCE atlanir - bu SADECE bir bilgi zenginlestirmesi, bildirimin
+        // KENDISINI ASLA engellemez (fail-open, TelegramService'teki AYNI ilke)
+        $technicalContext = $this->buildRiseAlertTechnicalContext($pair);
+
+        if ($technicalContext !== null) {
+            $message .= "\n\n🔍 Teknik durum (skor {$technicalContext['score']}/100): {$technicalContext['reason']}";
+        }
+
+        // "Ne kadar daha yukselebilir" icin UYDURMA bir tahmin YAPILMAZ - botun ZATEN girişte
+        // belirledigi gercek hedefe (Kar Al fiyati) olan mesafe raporlanir. Kar Al Tavani kaldirilmis
+        // (Sinirsiz Izleme) pozisyonlarda sabit bir hedef yoktur, bu durum ayrica belirtilir
+        $takeProfitRemoved = (int) ($trade['take_profit_removed'] ?? 0) === 1;
+        $takeProfitPrice = (float) ($trade['take_profit_price'] ?? 0);
+
+        if ($takeProfitRemoved) {
+            $message .= "\n🎯 Kâr Al tavanı kaldırılmış (Sınırsız İzleme) - sabit bir hedef yok, İzleyen Stop trendi takip ediyor.";
+        } elseif ($takeProfitPrice > 0 && $currentPrice > 0) {
+            $distanceToTarget = (($takeProfitPrice - $currentPrice) / $currentPrice) * 100;
+
+            if ($distanceToTarget > 0) {
+                $message .= sprintf("\n🎯 Kâr Al hedefine (%s\$) kalan mesafe: %%%.1f", $this->formatPrice($takeProfitPrice), $distanceToTarget);
+            }
+        }
+
+        $message .= "\n\nİsterseniz dashboard'dan \"Şimdi Kapat\" ile manuel kâr alabilirsiniz - bot otomatik stratejisine (İzleyen Stop) devam ediyor, bu sadece bilgilendirmedir.";
+
+        $this->telegram->notifyUser($chatId, $message);
+    }
+
+    // checkRiseAlert() icin: deterministik (AI/OpenAI MALIYETI OLMAYAN) teknik skor + Turkce gerekce
+    // metni - MarketScanner::calculateTechnicalScore() ile AYNI motor, tarama turunde adaylar icin
+    // kullanilanla BIREBIR ayni fonksiyon, sadece giris noktasi (acik pozisyon vs. aday) farkli.
+    // Herhangi bir Binance/hesaplama adimi basarisiz olursa null doner - cagiran taraf bunu sessizce
+    // atlar, bildirimin gonderilmesini ASLA engellemez
+    private function buildRiseAlertTechnicalContext(string $pair): ?array
+    {
+        try {
+            $scanner = new MarketScanner();
+            $ticker = $scanner->getTickerData($pair);
+
+            if ($ticker === null) {
+                return null;
+            }
+
+            $rsi1h = $scanner->calculateRsi($pair);
+            $technicalScore = $scanner->calculateTechnicalScore($pair, $ticker['priceChangePercent'], $rsi1h);
+
+            if ($technicalScore === null) {
+                return null;
+            }
+
+            return [
+                'score' => (int) $technicalScore['score'],
+                'reason' => (string) $technicalScore['reason'],
+            ];
+        } catch (Throwable $e) {
+            return null;
         }
     }
 

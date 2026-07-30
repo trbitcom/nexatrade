@@ -2,6 +2,11 @@
 
 Bu dosya NexaTrade'in sürüm geçmişini tutar. Format [Keep a Changelog](https://keepachangelog.com/tr/1.0.0/) ilkelerini, sürümleme ise [Semantic Versioning](https://semver.org/lang/tr/) (Major.Minor.Patch) kurallarını izler.
 
+## [1.79.0] - 2026-07-31
+
+### Yeni Özellik
+- [AutoTradeController] Yükseliş Uyarısı bildirimleri artık "teknik akıllı" - sadece yüzde değil, TechnicalScoreEngine'in (tarama turunda adaylar için kullanılanla BİREBİR aynı, deterministik, OpenAI maliyeti OLMAYAN) ürettiği RSI/MACD/hacim gerekçesini ve Kâr Al hedefine kalan mesafeyi de içeriyor. Herhangi bir adım başarısız olursa (Binance yavaşlarsa vb.) sessizce atlanır, bildirimin kendisini asla engellemez.
+
 ## [1.78.1] - 2026-07-31
 
 ### İyileştirme
