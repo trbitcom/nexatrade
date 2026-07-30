@@ -2,6 +2,11 @@
 
 Bu dosya NexaTrade'in sürüm geçmişini tutar. Format [Keep a Changelog](https://keepachangelog.com/tr/1.0.0/) ilkelerini, sürümleme ise [Semantic Versioning](https://semver.org/lang/tr/) (Major.Minor.Patch) kurallarını izler.
 
+## [1.78.0] - 2026-07-31
+
+### Yeni Özellik
+- [AutoTradeController, ActiveTrade, database.sql] "Yükseliş Uyarısı": açık bir pozisyon girişten +%2 karına ulaştığında müşteriye bilgi amaçlı bir Telegram bildirimi gönderiliyor - "İzleyen Stop/Kademeli Kâr Alma otomatik stratejisine hiçbir dokunuş yok, isterseniz Şimdi Kapat butonuyla manuel kâr alın" mesajıyla. Bir pozisyonda sadece bir kez gönderilir (`active_trades.rise_alert_sent`). Zaten her turda çekilen mevcut fiyat verisi kullanılır, ekstra Binance isteği yok.
+
 ## [1.77.1] - 2026-07-31
 
 ### Hata Düzeltme

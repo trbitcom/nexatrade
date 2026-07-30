@@ -172,6 +172,7 @@ CREATE TABLE IF NOT EXISTS `active_trades` (
     `loss_reason` VARCHAR(255) NULL COMMENT 'Trade Post-Mortem: zararla kapanan pozisyon icin tespit edilen kok neden (hiz/BTC etkisi/zirh-slippage kurali veya AI yedegi)',
     `partial_tp_executed` TINYINT(1) UNSIGNED NOT NULL DEFAULT 0 COMMENT 'Kademeli Kar Alma: pozisyonun yarisi erken karla satildi mi (bir pozisyonda SADECE BIR KEZ tetiklenir) - quantity/take_profit_price/stop_loss_price bu tetiklemeden sonra KALAN yariyi yansitir',
     `ai_entry_score` TINYINT UNSIGNED NULL COMMENT 'Girisi onaylayan GPT/AI skoru (0-100) - oncesinde SADECE bot_logs''a (sembol+zaman yaklasik eslesmesiyle) yaziliyordu, artik pozisyonun KENDI satirinda kalici/kesin olarak tutulur - "hangi skorla girilen islemler kar/zarar getirdi" analizini kesinlestirir. Sosyal Radar/Pusu kurtarma gibi yollardan gelen adaylarda da GPT skoru (varsa telafi puani dahil) budur',
+    `rise_alert_sent` TINYINT(1) UNSIGNED NOT NULL DEFAULT 0 COMMENT 'Yukselis Uyarisi: pozisyon +%RISE_ALERT_TRIGGER_PERCENT karina ulastiginda MUSTERIYE (bilgi amacli, otomatik satis DEGIL) bir Telegram bildirimi bir kez gonderilir - bkz. AutoTradeController::RISE_ALERT_TRIGGER_PERCENT',
     `opened_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `closed_at` TIMESTAMP NULL,
     PRIMARY KEY (`id`),
@@ -721,6 +722,16 @@ ALTER TABLE `active_trades`
 -- --------------------------------------------------------
 ALTER TABLE `orders`
     MODIFY COLUMN `type` ENUM('market', 'limit', 'oco', 'stop_loss', 'manual_close', 'market_emergency') NOT NULL DEFAULT 'market';
+
+-- --------------------------------------------------------
+-- Migrasyon: Yukselis Uyarisi (31 Temmuz) - musteri talebi: "Izleyen Stop'un otomatik satisini
+-- bozmadan, pozisyon belirli bir kara ulastiginda bana haber ver, istersen kendim manuel kapatirim"
+-- (bkz. DashboardController::apiClosePosition, v1.76.0 Simdi Kapat butonu). Otomatik satis
+-- mantigina (Kademeli Kar Alma/Izleyen Stop) HICBIR DOKUNUS YOK - sadece BILGI amacli, tek seferlik
+-- bir Telegram bildirimi
+-- --------------------------------------------------------
+ALTER TABLE `active_trades`
+    ADD COLUMN IF NOT EXISTS `rise_alert_sent` TINYINT(1) UNSIGNED NOT NULL DEFAULT 0 COMMENT 'Yukselis Uyarisi: pozisyon +%RISE_ALERT_TRIGGER_PERCENT karina ulastiginda MUSTERIYE (bilgi amacli, otomatik satis DEGIL) bir Telegram bildirimi bir kez gonderilir - bkz. AutoTradeController::RISE_ALERT_TRIGGER_PERCENT';
 
 -- --------------------------------------------------------
 -- Test kullanicisi (login akisini denemek icin) - admin yetkisiyle

@@ -134,6 +134,12 @@ final class AutoTradeController
     // giris denemesi yarim kaldi
     private const PENDING_LIMIT_ORDER_CANCEL_COOLDOWN_HOURS = 1;
 
+    // 31 Temmuz'da eklendi: musteri talebi - Izleyen Stop/Kademeli Kar Alma'nin otomatik satis
+    // mantigina HICBIR DOKUNUS olmadan, pozisyon bu kadar karina ulastiginda MUSTERIYE sadece
+    // BILGI amacli bir Telegram bildirimi gonderilir ("isterse kendisi Simdi Kapat butonuyla manuel
+    // cikar" senaryosu, v1.76.0). Bir pozisyonda SADECE BIR KEZ gonderilir (rise_alert_sent bayragi)
+    private const RISE_ALERT_TRIGGER_PERCENT = 2.0;
+
     // "Pusu" (ambush) kurtarma: GPT skoru global baraji GECEMEYEN ama en fazla bu kadar puan
     // altinda kalan (ör. baraj 70 ise, 55-70 arasi) TEK bir aday icin, 5dk/15dk grafikte net bir
     // "RSI dipten donus + MACD erken AL" sinyali varsa bagimsiz 2. onay kapisindan gecirilir.
@@ -2483,6 +2489,7 @@ final class AutoTradeController
 
                     if ($diagnosticPrice > 0) {
                         ActiveTrade::updatePriceExtremes($tradeId, $diagnosticPrice);
+                        $this->checkRiseAlert($trade, $diagnosticPrice);
                     }
 
                     // Dinamik Kaçış Protokolü: EN ONCE kontrol edilir - AI skoru kritik cokusteyse
@@ -2922,6 +2929,48 @@ final class AutoTradeController
         ));
 
         return true;
+    }
+
+    // Yukselis Uyarisi: reconcileActiveTradesInternal()'in zaten HER turda cektigi diagnosticPrice'i
+    // kullanir (ekstra Binance cagrisi YOK) - otomatik satis mantigina (Izleyen Stop/Kademeli Kar
+    // Alma) hicbir etkisi yoktur, SADECE musteriye bilgi amacli Telegram bildirimi gonderir. Rutin
+    // bir bildirim oldugu icin "Bildirim Yonlendirmesi" desenine gore SADECE musteriye gider, admin'e
+    // dusmez (bkz. CLAUDE.md)
+    private function checkRiseAlert(array $trade, float $currentPrice): void
+    {
+        if ((int) ($trade['rise_alert_sent'] ?? 0) === 1) {
+            return;
+        }
+
+        $entryPrice = (float) $trade['entry_price'];
+
+        if ($entryPrice <= 0) {
+            return;
+        }
+
+        $changePercent = (($currentPrice - $entryPrice) / $entryPrice) * 100;
+
+        if ($changePercent < self::RISE_ALERT_TRIGGER_PERCENT) {
+            return;
+        }
+
+        $tradeId = (int) $trade['id'];
+        $userId = (int) $trade['user_id'];
+        $pair = (string) $trade['pair'];
+
+        ActiveTrade::markRiseAlertSent($tradeId);
+
+        $chatId = User::findTelegramChatId($userId);
+
+        if ($chatId !== null) {
+            $this->telegram->notifyUser($chatId, sprintf(
+                "📈 %s yükselişte!\nGiriş: $%s\nGüncel: $%s (%%%.1f)\n\nİsterseniz dashboard'dan \"Şimdi Kapat\" ile manuel kâr alabilirsiniz - bot otomatik stratejisine (İzleyen Stop) devam ediyor, bu sadece bilgilendirmedir.",
+                $pair,
+                $this->formatPrice($entryPrice),
+                $this->formatPrice($currentPrice),
+                $changePercent
+            ));
+        }
     }
 
     // Izleyen Stop: pozisyon TRAILING_STOP_STAGES'teki tek sabit esige (+%1.5) ulastiginda, Zarar
