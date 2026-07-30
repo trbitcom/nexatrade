@@ -29,15 +29,24 @@ final class ChangelogService
             return [];
         }
 
-        $entries = [];
+        $filtered = [];
         $currentEntry = null;
         $currentSection = null;
 
+        // PERFORMANS (31 Temmuz): CHANGELOG.md her koda dokunulan degisiklikte buyuyor (bu oturumda
+        // bile 1.72'den 1.79'a onlarca satir eklendi) - dosyanin TAMAMINI her dashboard sayfa
+        // yuklemesinde parse edip SONRA $limit'e kirpmak, dosya buyudukce sinirsizce yavaslayan bir
+        // israf. Surumler dosyanin EN USTUNDE en yeniden en eskiye siralandigi icin (bkz. her
+        // migration'in "## [X.Y.Z]" basliginin dosyanin basina eklenmesi konvansiyonu), her surum
+        // KAPANDIGINDA (bir sonraki "##" basligina ulasilinca) HEMEN filtrelenip $limit'e sayilir -
+        // ham surum sayisina degil, MUSTERIYE GORUNECEK (bos kalanlar - ör. tamami [ADMIN] olan bir
+        // surum - elendikten sonraki) sayiya gore erken kesilir, aksi halde nadir de olsa bir surum
+        // tamamen admin-only oldugunda $limit'ten AZ kayit donme riski olurdu
         foreach (explode("\n", $content) as $line) {
             // "## [1.1.0] - 2026-07-06" seklindeki surum basligi
             if (preg_match('/^##\s*\[([^\]]+)\]\s*-\s*(.+)$/', $line, $matches) === 1) {
-                if ($currentEntry !== null) {
-                    $entries[] = $currentEntry;
+                if ($currentEntry !== null && self::appendIfNonEmpty($filtered, $currentEntry, $limit)) {
+                    break;
                 }
 
                 $currentEntry = ['version' => trim($matches[1]), 'date' => trim($matches[2]), 'sections' => []];
@@ -69,22 +78,24 @@ final class ChangelogService
             }
         }
 
-        if ($currentEntry !== null) {
-            $entries[] = $currentEntry;
+        if ($currentEntry !== null && count($filtered) < $limit) {
+            self::appendIfNonEmpty($filtered, $currentEntry, $limit);
         }
 
-        // [ADMIN] maddeleri elendikten sonra bos kalan bolumleri/surumleri musteri gorunumunden kaldirir
-        // (ör. bir surum SADECE admin-panel degisiklikleriyse, o surum basligi bile gosterilmez)
-        $filtered = [];
+        return $filtered;
+    }
 
-        foreach ($entries as $entry) {
-            $entry['sections'] = array_filter($entry['sections'], static fn (array $items): bool => $items !== []);
+    // Bir surumun bos kalan bolumlerini ([ADMIN] elendikten sonra hic maddesi kalmayan) kirpar,
+    // hala en az bir bolum kaldiysa $filtered'a ekler. @return bool $limit'e ulasildi mi (dogruysa
+    // cagiran taraf dongudan cikmali)
+    private static function appendIfNonEmpty(array &$filtered, array $entry, int $limit): bool
+    {
+        $entry['sections'] = array_filter($entry['sections'], static fn (array $items): bool => $items !== []);
 
-            if ($entry['sections'] !== []) {
-                $filtered[] = $entry;
-            }
+        if ($entry['sections'] !== []) {
+            $filtered[] = $entry;
         }
 
-        return array_slice($filtered, 0, $limit);
+        return count($filtered) >= $limit;
     }
 }

@@ -2,6 +2,11 @@
 
 Bu dosya NexaTrade'in sürüm geçmişini tutar. Format [Keep a Changelog](https://keepachangelog.com/tr/1.0.0/) ilkelerini, sürümleme ise [Semantic Versioning](https://semver.org/lang/tr/) (Major.Minor.Patch) kurallarını izler.
 
+## [1.79.2] - 2026-07-31
+
+### İyileştirme
+- [ChangelogService] `getEntries()` artık `$limit` sayıda sürüme ulaşır ulaşmaz erken kesiliyor - eskiden dashboard her açıldığında CHANGELOG.md'nin TAMAMI (dosya büyüdükçe sınırsızca yavaşlayan bir israf) parse edilip sonradan kırpılıyordu. Ölçüldü: ~0.46ms → ~0.05ms/çağrı (yerelde), çıktı önceki davranışla birebir aynı doğrulandı.
+
 ## [1.79.1] - 2026-07-31
 
 ### Yeni Özellik
