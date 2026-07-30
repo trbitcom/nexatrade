@@ -2320,6 +2320,13 @@ $openSettingsModal = !empty($successMessage) || !empty($errorMessage) || !empty(
                 .then(function (d) {
                     if (d.success) {
                         showToast(pair + ' kapatıldı ($' + parseFloat(d.exit_price).toFixed(6) + ')', true);
+                        // Sunucu artik satis gerceklesir gerceklesmez cevap donuyor (kayit/bildirim
+                        // arka planda tamamlanir - bkz. apiClosePosition yorumu), bu yuzden kart
+                        // hemen (arka plandaki DB yazimini beklemeden) client-side kaldirilir - aksi
+                        // halde bir sonraki fetchActiveTrades() turu DB yazimindan once yetisip
+                        // kapanan pozisyonu hala "acik" gosterebilirdi
+                        var card = document.querySelector('[data-hunt-card="' + tradeId + '"]');
+                        if (card) { card.remove(); }
                         fetchActiveTrades();
                         fetchPnl();
                         fetchBalance();

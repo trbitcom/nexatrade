@@ -1497,6 +1497,20 @@ final class DashboardController
             $exitPrice = $executedQty > 0 ? $cumulativeQuote / $executedQty : 0.0;
             $exitTotal = $cumulativeQuote > 0 ? $cumulativeQuote : $exitPrice * $executedQty;
 
+            // PERFORMANS (31 Temmuz, musteri talebi): satis Binance'te GERCEKLESTIKTEN hemen sonra
+            // tarayiciya aninda cevap donulur - finalizeSpotClose()'un geri kalani (komisyon sorgusu,
+            // Trade Post-Mortem analizi, Telegram bildirimi - hepsi birer ag cagrisi) fastcgi_finish_
+            // request() SONRASINDA, kullanicinin "Simdi Kapat" butonuna tikladigi anla arasinda hicbir
+            // katkisi yok. Asil kapanis (Binance market satisi) zaten YUKARIDA tamamlandi - burasi
+            // sadece kayit/bildirim, gecikmesi kullaniciyi bekletmemeli. function_exists() korumasi:
+            // bu fonksiyon sadece PHP-FPM altinda var, yoksa senkron devam eder (davranis DEGISMEZ,
+            // sadece hizlanma olmaz)
+            echo json_encode(['success' => true, 'exit_price' => $exitPrice], JSON_UNESCAPED_UNICODE);
+
+            if (function_exists('fastcgi_finish_request')) {
+                fastcgi_finish_request();
+            }
+
             (new AutoTradeController())->finalizeSpotClose(
                 $binance,
                 $trade,
@@ -1506,10 +1520,12 @@ final class DashboardController
                 $marketSellResult['order_id'] !== null ? (int) $marketSellResult['order_id'] : null,
                 'manual_close'
             );
-
-            echo json_encode(['success' => true, 'exit_price' => $exitPrice], JSON_UNESCAPED_UNICODE);
         } catch (Throwable $e) {
             error_log('[apiClosePosition] ' . $e->getMessage());
+            // fastcgi_finish_request() zaten cagrildiysa tarayici bu echo'yu asla gormez (baglanti
+            // zaten kapandi) - ama Binance market satisindan SONRAKI bir adimda (finalizeSpotClose
+            // ici) hata olursa bu artik sessiz kalmamali: criticalPersist() zaten kendi notifyAdmin
+            // AndCustomer'ini tetikler, burasi sadece error_log icin ek bir guvenlik agi
             echo json_encode(['success' => false, 'message' => 'Pozisyon kapatılamadı'], JSON_UNESCAPED_UNICODE);
         }
     }

@@ -2,6 +2,11 @@
 
 Bu dosya NexaTrade'in sürüm geçmişini tutar. Format [Keep a Changelog](https://keepachangelog.com/tr/1.0.0/) ilkelerini, sürümleme ise [Semantic Versioning](https://semver.org/lang/tr/) (Major.Minor.Patch) kurallarını izler.
 
+## [1.80.1] - 2026-07-31
+
+### İyileştirme
+- [DashboardController, dashboard/index.php] "Şimdi Kapat" butonu artık Binance market satışı gerçekleşir gerçekleşmez anında yanıt veriyor - eskiden komisyon sorgusu, Trade Post-Mortem analizi ve Telegram bildirimi (üçü de birer ağ çağrısı) tamamlanana kadar tarayıcı bekliyordu, kullanıcı butonun "takıldığını" hissediyordu. `fastcgi_finish_request()` ile yanıt hemen döndürülüp kayıt/bildirim adımları arka planda tamamlanıyor; kart da sunucudan yeni veri beklemeden anında kaldırılıyor.
+
 ## [1.80.0] - 2026-07-31
 
 ### Hata Düzeltme (Kritik)
