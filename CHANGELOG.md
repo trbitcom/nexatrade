@@ -2,6 +2,11 @@
 
 Bu dosya NexaTrade'in sürüm geçmişini tutar. Format [Keep a Changelog](https://keepachangelog.com/tr/1.0.0/) ilkelerini, sürümleme ise [Semantic Versioning](https://semver.org/lang/tr/) (Major.Minor.Patch) kurallarını izler.
 
+## [1.80.0] - 2026-07-31
+
+### Hata Düzeltme (Kritik)
+- [AutoTradeController, ActiveTrade, database.sql] Korumasız Pozisyon Alarmı eklendi - canlı olayda tespit edildi: Volkan'ın #243 BANKUSDT pozisyonunda OCO hiç girilememiş, `reconcileActiveTradesInternal()` bu durumu SESSİZCE ve SONSUZA KADAR atlıyordu (koruma emri olmayan pozisyonlar mutabakat döngüsünün en başında `continue` ile geçiliyordu). Coin %64 çökene kadar hiç fark edilmedi, hiçbir alarm tekrarlanmadı. Artık böyle bir pozisyon her mutabakat turunda kontrol edilip 6 saatte bir admin+müşteriye tekrar "ACİL: Pozisyon Korumasız" bildirimi gönderiliyor.
+
 ## [1.79.2] - 2026-07-31
 
 ### İyileştirme

@@ -173,6 +173,7 @@ CREATE TABLE IF NOT EXISTS `active_trades` (
     `partial_tp_executed` TINYINT(1) UNSIGNED NOT NULL DEFAULT 0 COMMENT 'Kademeli Kar Alma: pozisyonun yarisi erken karla satildi mi (bir pozisyonda SADECE BIR KEZ tetiklenir) - quantity/take_profit_price/stop_loss_price bu tetiklemeden sonra KALAN yariyi yansitir',
     `ai_entry_score` TINYINT UNSIGNED NULL COMMENT 'Girisi onaylayan GPT/AI skoru (0-100) - oncesinde SADECE bot_logs''a (sembol+zaman yaklasik eslesmesiyle) yaziliyordu, artik pozisyonun KENDI satirinda kalici/kesin olarak tutulur - "hangi skorla girilen islemler kar/zarar getirdi" analizini kesinlestirir. Sosyal Radar/Pusu kurtarma gibi yollardan gelen adaylarda da GPT skoru (varsa telafi puani dahil) budur',
     `rise_alert_last_percent` SMALLINT UNSIGNED NOT NULL DEFAULT 0 COMMENT 'Yukselis Uyarisi: musteriye (bilgi amacli, otomatik satis DEGIL) en son bildirim gonderilen tam yuzde esigi (ör. 2) - fiyat bir sonraki esigi (ör. 3) gecince YENI bir bildirim gonderilir, ayni esik icin tekrar gonderilmez. bkz. AutoTradeController::RISE_ALERT_START_PERCENT/STEP_PERCENT',
+    `unprotected_alert_sent_at` DATETIME NULL COMMENT 'Korumasiz Pozisyon Alarmi: bu pozisyon icin en son ne zaman uyari gonderildi - bkz. ActiveTrade::shouldSendUnprotectedAlert()',
     `opened_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `closed_at` TIMESTAMP NULL,
     PRIMARY KEY (`id`),
@@ -735,6 +736,17 @@ ALTER TABLE `orders`
 ALTER TABLE `active_trades`
     DROP COLUMN IF EXISTS `rise_alert_sent`,
     ADD COLUMN IF NOT EXISTS `rise_alert_last_percent` SMALLINT UNSIGNED NOT NULL DEFAULT 0 COMMENT 'Yukselis Uyarisi: musteriye en son bildirim gonderilen tam yuzde esigi (ör. 2) - bir sonraki esik gecilince YENI bildirim gonderilir. bkz. AutoTradeController::RISE_ALERT_START_PERCENT/STEP_PERCENT';
+
+-- --------------------------------------------------------
+-- Migrasyon: Korumasiz Pozisyon Alarmi (31 Temmuz) - canli olayda tespit edildi: Volkan'in #243
+-- BANKUSDT pozisyonu OCO hic girilemeden acilmis, reconcileActiveTradesInternal() bu durumu
+-- SESSIZCE ve SONSUZA KADAR atliyordu (oco_order_list_id NULL oldugu icin dongu en basta continue
+-- ediyordu) - gunlerce fark edilmeden acik kaldi, coin %64 coktu, hicbir alarm tekrarlanmadi.
+-- Artik boyle bir pozisyon HER mutabakat turunde kontrol edilip throttle suresi (bkz.
+-- AutoTradeController::UNPROTECTED_ALERT_REPEAT_HOURS) gecmisse tekrar admin+musteriye bildirilir
+-- --------------------------------------------------------
+ALTER TABLE `active_trades`
+    ADD COLUMN IF NOT EXISTS `unprotected_alert_sent_at` DATETIME NULL COMMENT 'Korumasiz Pozisyon Alarmi: bu pozisyon icin en son ne zaman uyari gonderildi - bkz. ActiveTrade::shouldSendUnprotectedAlert()';
 
 -- --------------------------------------------------------
 -- Test kullanicisi (login akisini denemek icin) - admin yetkisiyle

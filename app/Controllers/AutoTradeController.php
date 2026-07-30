@@ -145,6 +145,12 @@ final class AutoTradeController
     private const RISE_ALERT_START_PERCENT = 1;
     private const RISE_ALERT_STEP_PERCENT = 1;
 
+    // 31 Temmuz'da eklendi (Volkan #243 BANKUSDT canli olayi): koruma emri (OCO/tekil Zarar Kes)
+    // hic girilememis bir pozisyon icin admin+musteriye kac saatte bir TEKRAR uyari gonderilir -
+    // bkz. alertIfUnprotected() yorumu. Cok kisa olursa spam olur, cok uzun olursa gunlerce fark
+    // edilmeme riski (yasanan olayin ta kendisi) geri doner
+    private const UNPROTECTED_ALERT_REPEAT_HOURS = 6;
+
     // "Pusu" (ambush) kurtarma: GPT skoru global baraji GECEMEYEN ama en fazla bu kadar puan
     // altinda kalan (ör. baraj 70 ise, 55-70 arasi) TEK bir aday icin, 5dk/15dk grafikte net bir
     // "RSI dipten donus + MACD erken AL" sinyali varsa bagimsiz 2. onay kapisindan gecirilir.
@@ -2471,11 +2477,18 @@ final class AutoTradeController
                 $takeProfitRemoved = (bool) ((int) ($trade['take_profit_removed'] ?? 0));
 
                 if (!$takeProfitRemoved && $trade['oco_order_list_id'] === null) {
+                    // 31 Temmuz'da eklendi: bu dal eskiden SESSIZCE atlanip pozisyonu SONSUZA KADAR
+                    // mutabakat disinda birakiyordu - bkz. alertIfUnprotected() yorumu (Volkan #243
+                    // BANKUSDT canli olayi: OCO hic girilememis, hicbir alarm/log tekrarlanmadigi
+                    // icin fark edilmeden gunlerce boyle kaldi)
+                    $this->alertIfUnprotected($trade);
                     continue;
                 }
 
                 if ($takeProfitRemoved && $trade['stop_loss_order_id'] === null) {
-                    continue; // Kar Al kaldirilmis ama emir yok - gercekten korumasiz, atla
+                    // Kar Al kaldirilmis ama emir yok - gercekten korumasiz, atla
+                    $this->alertIfUnprotected($trade);
+                    continue;
                 }
 
                 $apiKey = ApiKey::findByUser($userId)[0] ?? null;
@@ -2946,6 +2959,32 @@ final class AutoTradeController
         ));
 
         return true;
+    }
+
+    // Korumasiz Pozisyon Alarmi: reconcileActiveTradesInternal()'in "bu pozisyonun ne OCO ne tekil
+    // Zarar Kes emri var" tespit noktalarindan cagirilir (bkz. o metodun yorumu). Eskiden bu durum
+    // SESSIZCE atlanip pozisyon SONSUZA KADAR mutabakat disinda kalabiliyordu (Volkan #243 BANKUSDT
+    // canli olayi: %64 cokene kadar fark edilmedi). Artik throttle suresi (UNPROTECTED_ALERT_REPEAT_
+    // HOURS) gecmisse HER turda tekrar admin+musteriye "Kritik/Acil" ciddiyetinde bildirim gider -
+    // digger rutin bildirimlerden farkli olarak notifyAdminAndCustomer kullanilir (bkz. "Bildirim
+    // Yonlendirmesi": kritik olaylar hem musteriye hem admine gider)
+    private function alertIfUnprotected(array $trade): void
+    {
+        $tradeId = (int) $trade['id'];
+
+        if (!ActiveTrade::shouldSendUnprotectedAlert($tradeId, self::UNPROTECTED_ALERT_REPEAT_HOURS)) {
+            return;
+        }
+
+        $userId = (int) $trade['user_id'];
+        $pair = (string) $trade['pair'];
+
+        $this->logAutomationError("KRİTİK: Pozisyon #{$tradeId} ({$pair}, Kullanıcı #{$userId}) hâlâ korumasız (ne OCO ne tekil Zarar Kes emri var) - tekrar uyarı gönderildi.");
+
+        $this->notifyAdminAndCustomer(
+            $userId,
+            "🚨 ACİL: Pozisyon Korumasız!\nCoin: {$pair} (#{$tradeId})\n\nBu pozisyon için ne Kâr Al/Zarar Kes (OCO) ne de tek başına bir Zarar Kes emri bulunuyor. Lütfen Binance hesabınızı manuel olarak kontrol edip gerekirse elle koruyun/kapatın. Bu uyarı her " . self::UNPROTECTED_ALERT_REPEAT_HOURS . " saatte bir tekrarlanacaktır."
+        );
     }
 
     // Yukselis Uyarisi: reconcileActiveTradesInternal()'in zaten HER turda cektigi diagnosticPrice'i

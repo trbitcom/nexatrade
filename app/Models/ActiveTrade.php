@@ -316,6 +316,30 @@ final class ActiveTrade
     // Asama 3'te (Sinirsiz Izleme) yeni bir zirve fiyat gorulup de henuz Zarar Kes'i degistirmeye
     // deger (TRAILING_STOP_MIN_IMPROVEMENT_PERCENT) bir iyilesme olusturmadigi durumlarda kullanilir -
     // OCO'ya HIC dokunulmaz, sadece bir sonraki turun dogru zirveden devam etmesi icin deger kaydedilir
+    // Korumasiz Pozisyon Alarmi (31 Temmuz, Volkan #243 BANKUSDT canli olayindan sonra eklendi):
+    // OCO/tekil Zarar Kes emri hic girilememis bir pozisyon eskiden reconcileActiveTradesInternal()
+    // tarafindan SESSIZCE ve SONSUZA KADAR atlaniyordu - bu yuzden gunlerce fark edilmeden acik
+    // kalabiliyordu. Artik her mutabakat turunde bu metod cagrilir: throttle suresi (saat) gecmisse
+    // TEK bir atomik UPDATE ile hem "gonderildi" damgasini basar hem true doner (cagiran taraf true
+    // donerse alarm gonderir) - MySQL'in KENDI saatiyle (NOW()) calisir, PHP time()/strtotime()
+    // KARSILASTIRMASI YAPILMAZ (bkz. SymbolCooldown::getCooldownUntil AYNI ilke)
+    public static function shouldSendUnprotectedAlert(int $tradeId, int $throttleHours): bool
+    {
+        $pdo = Database::getInstance();
+
+        $stmt = $pdo->prepare(
+            'UPDATE active_trades
+             SET unprotected_alert_sent_at = NOW()
+             WHERE id = :id
+               AND (unprotected_alert_sent_at IS NULL OR unprotected_alert_sent_at <= DATE_SUB(NOW(), INTERVAL :hours HOUR))'
+        );
+        $stmt->bindValue(':id', $tradeId, PDO::PARAM_INT);
+        $stmt->bindValue(':hours', $throttleHours, PDO::PARAM_INT);
+        $stmt->execute();
+
+        return $stmt->rowCount() > 0;
+    }
+
     // Yukselis Uyarisi: musteriye bilgi amacli Telegram bildirimi gonderilen en son tam yuzde
     // esigini kaydeder (bkz. AutoTradeController::checkRiseAlert) - fiyat bir sonraki esigi
     // gecmeden ayni seviye icin tekrar bildirim gonderilmesin diye
