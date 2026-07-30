@@ -2123,13 +2123,25 @@ final class AutoTradeController
 
         ActiveTrade::addFillRecord($activeTradeId, $buyOrderId, $ocoQuantity, $entryPrice, 'initial');
 
-        $this->notifyCustomer(
-            $userId,
-            "🎯 [NexaTrade] Yeni Pozisyon Açıldı!\n" .
+        $entryMessage = "🎯 [NexaTrade] Yeni Pozisyon Açıldı!\n" .
             "Coin: {$pair} | Giriş Fiyatı: {$this->formatPrice($entryPrice)} | Kullanılan Bütçe: {$this->formatPrice($budget)}$ (Kasanın %{$this->formatPercentTrim($budgetPercent)}'si)\n\n" .
             "🛡️ Koruma Aktif — Kâr Al: {$this->formatPrice($takeProfitPrice)} | Zarar Kes: {$this->formatPrice($stopTriggerPrice)} " .
-            "(fitil koruması: ilk " . self::WICK_SHIELD_MINUTES . " dk geniş tutulur, sonra asıl hedefe sıkılaştırılır)"
-        );
+            "(fitil koruması: ilk " . self::WICK_SHIELD_MINUTES . " dk geniş tutulur, sonra asıl hedefe sıkılaştırılır)";
+
+        // Musteri talebi (31 Temmuz): "neye gore aldi, teknik bilgi versin" - bkz. buildTechnicalContext()
+        // yorumu (giris anindaki GUNCEL teknik durumun anlik goruntusu, tarama turunun arsivlenmis
+        // gerekcesinin AYNISI olmayabilir). AI modundaysa GPT'nin kendi skoru da (varsa) eklenir
+        $technicalContext = $this->buildTechnicalContext($pair);
+
+        if ($technicalContext !== null) {
+            $entryMessage .= "\n🔍 Teknik durum (skor {$technicalContext['score']}/100): {$technicalContext['reason']}";
+        }
+
+        if ($aiEntryScore !== null) {
+            $entryMessage .= "\n🤖 AI Karar Skoru: {$aiEntryScore}/100";
+        }
+
+        $this->notifyCustomer($userId, $entryMessage);
     }
 
     // Binance'in resmi exchangeInfo listesini onceki taramada kaydedilenle karsilastirir
@@ -2988,7 +3000,7 @@ final class AutoTradeController
         // acik pozisyon icin de uretilir. Herhangi bir adimi basarisiz olursa (ör. Binance yavas
         // yanit verirse) SESSIZCE atlanir - bu SADECE bir bilgi zenginlestirmesi, bildirimin
         // KENDISINI ASLA engellemez (fail-open, TelegramService'teki AYNI ilke)
-        $technicalContext = $this->buildRiseAlertTechnicalContext($pair);
+        $technicalContext = $this->buildTechnicalContext($pair);
 
         if ($technicalContext !== null) {
             $message .= "\n\n🔍 Teknik durum (skor {$technicalContext['score']}/100): {$technicalContext['reason']}";
@@ -3015,12 +3027,15 @@ final class AutoTradeController
         $this->telegram->notifyUser($chatId, $message);
     }
 
-    // checkRiseAlert() icin: deterministik (AI/OpenAI MALIYETI OLMAYAN) teknik skor + Turkce gerekce
-    // metni - MarketScanner::calculateTechnicalScore() ile AYNI motor, tarama turunde adaylar icin
-    // kullanilanla BIREBIR ayni fonksiyon, sadece giris noktasi (acik pozisyon vs. aday) farkli.
-    // Herhangi bir Binance/hesaplama adimi basarisiz olursa null doner - cagiran taraf bunu sessizce
-    // atlar, bildirimin gonderilmesini ASLA engellemez
-    private function buildRiseAlertTechnicalContext(string $pair): ?array
+    // checkRiseAlert() ve protectPositionWithOco()'nun "Yeni Pozisyon Açıldı" bildirimi ORTAK kullanir:
+    // deterministik (AI/OpenAI MALIYETI OLMAYAN) teknik skor + Turkce gerekce metni -
+    // MarketScanner::calculateTechnicalScore() ile AYNI motor, tarama turunde adaylar icin
+    // kullanilanla BIREBIR ayni fonksiyon. protectPositionWithOco() cagirdiginda bu, giristeki ASIL
+    // tarama karariyla BIREBIR ayni olmayabilir (ozellikle bekleyen limit emri dakikalarca sonra
+    // dolduysa) - GIRIS ANINDAKI GUNCEL teknik durumun bir anlik goruntusudur, tarama turunun
+    // arsivlenmis gerekcesi degil. Herhangi bir Binance/hesaplama adimi basarisiz olursa null doner -
+    // cagiran taraf bunu sessizce atlar, bildirimin gonderilmesini ASLA engellemez
+    private function buildTechnicalContext(string $pair): ?array
     {
         try {
             $scanner = new MarketScanner();

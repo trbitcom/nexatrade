@@ -2,6 +2,11 @@
 
 Bu dosya NexaTrade'in sürüm geçmişini tutar. Format [Keep a Changelog](https://keepachangelog.com/tr/1.0.0/) ilkelerini, sürümleme ise [Semantic Versioning](https://semver.org/lang/tr/) (Major.Minor.Patch) kurallarını izler.
 
+## [1.79.1] - 2026-07-31
+
+### Yeni Özellik
+- [AutoTradeController] "Yeni Pozisyon Açıldı" bildirimine de teknik gerekçe eklendi ("neye göre aldı" bilgisi) - Yükseliş Uyarısı'ndaki AYNI deterministik motor (buildTechnicalContext, artık iki yerden ortak çağrılıyor) giriş anındaki güncel teknik durumu raporluyor, AI modunda GPT'nin skoru da ayrıca eklenir.
+
 ## [1.79.0] - 2026-07-31
 
 ### Yeni Özellik
