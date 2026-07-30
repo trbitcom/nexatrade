@@ -135,10 +135,15 @@ final class AutoTradeController
     private const PENDING_LIMIT_ORDER_CANCEL_COOLDOWN_HOURS = 1;
 
     // 31 Temmuz'da eklendi: musteri talebi - Izleyen Stop/Kademeli Kar Alma'nin otomatik satis
-    // mantigina HICBIR DOKUNUS olmadan, pozisyon bu kadar karina ulastiginda MUSTERIYE sadece
-    // BILGI amacli bir Telegram bildirimi gonderilir ("isterse kendisi Simdi Kapat butonuyla manuel
-    // cikar" senaryosu, v1.76.0). Bir pozisyonda SADECE BIR KEZ gonderilir (rise_alert_sent bayragi)
-    private const RISE_ALERT_TRIGGER_PERCENT = 2.0;
+    // mantigina HICBIR DOKUNUS olmadan, pozisyon karina gore KADEMELI olarak MUSTERIYE bilgi amacli
+    // Telegram bildirimleri gonderilir ("isterse kendisi Simdi Kapat butonuyla manuel cikar"
+    // senaryosu, v1.76.0). Ilk esik START_PERCENT'te (+%1), sonrasi her STEP_PERCENT'te bir (+%2,
+    // +%3, ...) tekrarlanir - fiyat iki cron turu arasinda birkac esigi birden atlarsa (ör. %0.5'ten
+    // %4'e siçrarsa) ARA esikler icin ayri ayri bildirim gonderilmez, sadece GUNCEL yuzde ile TEK
+    // bir bildirim gider (bkz. checkRiseAlert - rise_alert_last_percent HER ZAMAN o anki tam yuzdeye
+    // atlanir, kacirilan ara kademeler geriye donuk doldurulmaz)
+    private const RISE_ALERT_START_PERCENT = 1;
+    private const RISE_ALERT_STEP_PERCENT = 1;
 
     // "Pusu" (ambush) kurtarma: GPT skoru global baraji GECEMEYEN ama en fazla bu kadar puan
     // altinda kalan (ör. baraj 70 ise, 55-70 arasi) TEK bir aday icin, 5dk/15dk grafikte net bir
@@ -2938,10 +2943,6 @@ final class AutoTradeController
     // dusmez (bkz. CLAUDE.md)
     private function checkRiseAlert(array $trade, float $currentPrice): void
     {
-        if ((int) ($trade['rise_alert_sent'] ?? 0) === 1) {
-            return;
-        }
-
         $entryPrice = (float) $trade['entry_price'];
 
         if ($entryPrice <= 0) {
@@ -2949,8 +2950,15 @@ final class AutoTradeController
         }
 
         $changePercent = (($currentPrice - $entryPrice) / $entryPrice) * 100;
+        $currentStep = (int) floor($changePercent / self::RISE_ALERT_STEP_PERCENT) * self::RISE_ALERT_STEP_PERCENT;
 
-        if ($changePercent < self::RISE_ALERT_TRIGGER_PERCENT) {
+        if ($currentStep < self::RISE_ALERT_START_PERCENT) {
+            return;
+        }
+
+        $lastAlertedPercent = (int) ($trade['rise_alert_last_percent'] ?? 0);
+
+        if ($currentStep <= $lastAlertedPercent) {
             return;
         }
 
@@ -2958,17 +2966,17 @@ final class AutoTradeController
         $userId = (int) $trade['user_id'];
         $pair = (string) $trade['pair'];
 
-        ActiveTrade::markRiseAlertSent($tradeId);
+        ActiveTrade::updateRiseAlertLastPercent($tradeId, $currentStep);
 
         $chatId = User::findTelegramChatId($userId);
 
         if ($chatId !== null) {
             $this->telegram->notifyUser($chatId, sprintf(
-                "📈 %s yükselişte!\nGiriş: $%s\nGüncel: $%s (%%%.1f)\n\nİsterseniz dashboard'dan \"Şimdi Kapat\" ile manuel kâr alabilirsiniz - bot otomatik stratejisine (İzleyen Stop) devam ediyor, bu sadece bilgilendirmedir.",
+                "📈 %s yükselişte! (+%%%.1f)\nGiriş: $%s\nGüncel: $%s\n\nİsterseniz dashboard'dan \"Şimdi Kapat\" ile manuel kâr alabilirsiniz - bot otomatik stratejisine (İzleyen Stop) devam ediyor, bu sadece bilgilendirmedir.",
+                $changePercent,
                 $pair,
                 $this->formatPrice($entryPrice),
-                $this->formatPrice($currentPrice),
-                $changePercent
+                $this->formatPrice($currentPrice)
             ));
         }
     }

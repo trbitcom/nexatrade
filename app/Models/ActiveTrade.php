@@ -316,15 +316,15 @@ final class ActiveTrade
     // Asama 3'te (Sinirsiz Izleme) yeni bir zirve fiyat gorulup de henuz Zarar Kes'i degistirmeye
     // deger (TRAILING_STOP_MIN_IMPROVEMENT_PERCENT) bir iyilesme olusturmadigi durumlarda kullanilir -
     // OCO'ya HIC dokunulmaz, sadece bir sonraki turun dogru zirveden devam etmesi icin deger kaydedilir
-    // Yukselis Uyarisi: pozisyon +RISE_ALERT_TRIGGER_PERCENT karina ulasip musteriye bilgi amacli
-    // Telegram bildirimi gonderildiginde bir daha gonderilmesin diye isaretlenir (bkz.
-    // AutoTradeController::checkRiseAlert yorumu) - partial_tp_executed ile AYNI "bir kez tetiklenir" deseni
-    public static function markRiseAlertSent(int $tradeId): void
+    // Yukselis Uyarisi: musteriye bilgi amacli Telegram bildirimi gonderilen en son tam yuzde
+    // esigini kaydeder (bkz. AutoTradeController::checkRiseAlert) - fiyat bir sonraki esigi
+    // gecmeden ayni seviye icin tekrar bildirim gonderilmesin diye
+    public static function updateRiseAlertLastPercent(int $tradeId, int $percent): void
     {
         $pdo = Database::getInstance();
 
-        $stmt = $pdo->prepare('UPDATE active_trades SET rise_alert_sent = 1 WHERE id = :id');
-        $stmt->execute([':id' => $tradeId]);
+        $stmt = $pdo->prepare('UPDATE active_trades SET rise_alert_last_percent = :percent WHERE id = :id');
+        $stmt->execute([':percent' => $percent, ':id' => $tradeId]);
     }
 
     public static function updateHighestPriceSeen(int $tradeId, float $highestPriceSeen): void

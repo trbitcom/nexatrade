@@ -2,6 +2,11 @@
 
 Bu dosya NexaTrade'in sürüm geçmişini tutar. Format [Keep a Changelog](https://keepachangelog.com/tr/1.0.0/) ilkelerini, sürümleme ise [Semantic Versioning](https://semver.org/lang/tr/) (Major.Minor.Patch) kurallarını izler.
 
+## [1.78.1] - 2026-07-31
+
+### İyileştirme
+- [AutoTradeController, ActiveTrade, database.sql] Yükseliş Uyarısı tek eşikli (+%2, tek seferlik) yapıdan kademeli/dinamik yapıya geçirildi - artık +%1'de başlayıp her +%1'de bir (+%2, +%3, ...) tekrar bildirim gönderiliyor. `rise_alert_sent` bayrağı (dün kullanılmadan) `rise_alert_last_percent` ile değiştirildi.
+
 ## [1.78.0] - 2026-07-31
 
 ### Yeni Özellik
