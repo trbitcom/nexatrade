@@ -72,6 +72,27 @@ final class PendingLimitOrder
         return $pdo->query('SELECT * FROM pending_limit_orders ORDER BY id ASC')->fetchAll();
     }
 
+    // Dashboard "Bekleyen Emirler" paneli icin (31 Temmuz) - musterinin "kactan/ne kadarlik alacagini
+    // ONCEDEN gormek istiyorum" talebi. remaining_seconds MySQL'in KENDI saatiyle hesaplanir (bkz.
+    // SymbolCooldown::getCooldownUntil AYNI ilke) - PHP tarafinda placed_at uzerinden ayrica
+    // strtotime()/time() KARSILASTIRMASI YAPILMAZ. 900 (15 dk) sabiti AutoTradeController::
+    // PENDING_LIMIT_ORDER_TIMEOUT_MINUTES ile SENKRON tutulmali - degisirse burasi da guncellenmeli
+    public static function findByUser(int $userId): array
+    {
+        $pdo = Database::getInstance();
+
+        $stmt = $pdo->prepare(
+            'SELECT *,
+                    GREATEST(0, 900 - TIMESTAMPDIFF(SECOND, placed_at, NOW())) AS remaining_seconds
+             FROM pending_limit_orders
+             WHERE user_id = :user_id
+             ORDER BY placed_at DESC'
+        );
+        $stmt->execute([':user_id' => $userId]);
+
+        return $stmt->fetchAll();
+    }
+
     public static function delete(int $id): void
     {
         $pdo = Database::getInstance();

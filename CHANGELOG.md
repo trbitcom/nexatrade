@@ -2,6 +2,11 @@
 
 Bu dosya NexaTrade'in sürüm geçmişini tutar. Format [Keep a Changelog](https://keepachangelog.com/tr/1.0.0/) ilkelerini, sürümleme ise [Semantic Versioning](https://semver.org/lang/tr/) (Major.Minor.Patch) kurallarını izler.
 
+## [1.81.0] - 2026-07-31
+
+### Yeni Özellik
+- [DashboardController, PendingLimitOrder, dashboard/index.php] "Bekleyen Emirler" paneli eklendi - müşteri talebi: "kaçtan/ne kadarlık alacağını önceden bilmek istiyorum". Tüm filtrelerden geçip gerçek bir Binance limit emri konulmuş ama henüz dolmamış adaylar artık Aktif Avlar panelinin üstünde (⏳ BEKLİYOR, fiyat/miktar/kalan süre ile) canlı gösteriliyor - yeni `/api/dashboard/pending-orders` uç noktası, 3sn'de bir otomatik yenileniyor.
+
 ## [1.80.1] - 2026-07-31
 
 ### İyileştirme

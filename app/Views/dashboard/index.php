@@ -851,6 +851,27 @@ $openSettingsModal = !empty($successMessage) || !empty($errorMessage) || !empty(
                     <span id="huntsPositionCount" class="font-mono-tech text-[10px] text-gray-500 tracking-widest"><?= count($activeTrades) + count($activeFuturesTrades) ?> POZİSYON</span>
                 </div>
             </div>
+            <!-- Bekleyen Emirler: tum filtrelerden gecip GERCEK bir Binance limit emri konulmus ama
+                 henuz DOLMAMIS adaylar - musteri talebi (31 Temmuz): "kactan/ne kadarlik alacagini
+                 ONCEDEN gormek istiyorum". huntsContainer'dan AYRI (o acik POZISYONLARI temsil eder,
+                 bu henuz gerceklesmemis bir DENEME) - JS syncHuntCards()'ı bozmamak icin ayri kart tipi -->
+            <div id="pendingOrdersContainer" class="flex-none <?= empty($pendingOrders) ? 'hidden' : '' ?> px-3 pt-2 space-y-1.5 border-b border-black/5 pb-2">
+                <?php foreach ($pendingOrders as $po): ?>
+                    <div data-pending-card="<?= (int) $po['id'] ?>" class="rounded-lg border border-dashed border-amber-400/40 bg-amber-400/[0.04] px-3 py-1.5">
+                        <div class="flex justify-between items-center">
+                            <span class="flex items-center gap-1.5">
+                                <span class="font-mono-tech text-[9px] font-bold text-amber-600 border border-amber-400/40 rounded px-1 py-0.5">⏳ BEKLİYOR</span>
+                                <span class="font-mono-tech text-xs font-semibold text-gray-800"><?= htmlspecialchars((string) $po['pair'], ENT_QUOTES, 'UTF-8') ?></span>
+                            </span>
+                            <span data-pending-remaining="<?= (int) $po['id'] ?>" class="font-mono-tech text-[9px] text-amber-600"><?= (int) round(((int) $po['remaining_seconds']) / 60) ?> dk kaldı</span>
+                        </div>
+                        <div class="flex justify-between items-center mt-0.5">
+                            <span class="font-mono-tech text-[10px] text-gray-500">Fiyat: $<?= $formatTradePrice((float) $po['limit_price']) ?> · Miktar: <?= $trimQty((float) $po['quantity']) ?></span>
+                            <span class="font-mono-tech text-[10px] text-gray-500">~$<?= number_format((float) $po['budget'], 2) ?></span>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            </div>
             <div id="huntsContainer" class="flex-1 min-h-0 overflow-y-auto thin-scroll px-3 py-2 space-y-2">
                 <?php if (empty($activeTrades) && empty($activeFuturesTrades)): ?>
                     <p data-hunts-empty="1" class="font-mono-tech text-xs text-gray-500">Açık pozisyon yok</p>
@@ -3512,6 +3533,47 @@ $openSettingsModal = !empty($successMessage) || !empty($errorMessage) || !empty(
                 + '</table>';
         }
 
+        // "Bekleyen Emirler" - musteri talebi (31 Temmuz): tum filtrelerden gecip GERCEK bir Binance
+        // limit emri konulmus ama henuz DOLMAMIS adaylari gosterir - huntsContainer'daki (acik
+        // POZISYON) kartlarindan AYRI, kendi kucuk container'i var (bkz. PHP tarafindaki ilk render)
+        function fetchPendingOrders() {
+            safeFetch('/api/dashboard/pending-orders')
+                .then(function(d) {
+                    if (!d.success) return;
+                    renderPendingOrders(d.orders || []);
+                })
+                .catch(function() {});
+        }
+
+        function renderPendingOrders(orders) {
+            var c = document.getElementById('pendingOrdersContainer');
+            if (!c) return;
+
+            if (!orders.length) {
+                c.classList.add('hidden');
+                c.innerHTML = '';
+                return;
+            }
+
+            c.classList.remove('hidden');
+            c.innerHTML = orders.map(function(po) {
+                var remainingMin = Math.round(po.remaining_seconds / 60);
+                return '<div data-pending-card="' + po.id + '" class="rounded-lg border border-dashed border-amber-400/40 bg-amber-400/[0.04] px-3 py-1.5">'
+                    + '<div class="flex justify-between items-center">'
+                    +   '<span class="flex items-center gap-1.5">'
+                    +     '<span class="font-mono-tech text-[9px] font-bold text-amber-600 border border-amber-400/40 rounded px-1 py-0.5">⏳ BEKLİYOR</span>'
+                    +     '<span class="font-mono-tech text-xs font-semibold text-gray-800">' + escapeHtml(po.pair) + '</span>'
+                    +   '</span>'
+                    +   '<span class="font-mono-tech text-[9px] text-amber-600">' + remainingMin + ' dk kaldı</span>'
+                    + '</div>'
+                    + '<div class="flex justify-between items-center mt-0.5">'
+                    +   '<span class="font-mono-tech text-[10px] text-gray-500">Fiyat: $' + formatFullPrecisionPrice(po.limit_price) + ' · Miktar: ' + trimQtyJs(po.quantity) + '</span>'
+                    +   '<span class="font-mono-tech text-[10px] text-gray-500">~$' + parseFloat(po.budget).toFixed(2) + '</span>'
+                    + '</div>'
+                    + '</div>';
+            }).join('');
+        }
+
         // --- AI Kalkanı (Görünmez Kalkan Raporu) ---
         var INTERVENTION_TYPE_LABELS = {
             MTF_TUZAK: 'Trend Tuzağı',
@@ -3722,6 +3784,7 @@ $openSettingsModal = !empty($successMessage) || !empty($errorMessage) || !empty(
             fetchScanStatus();
             fetchSystemStatus(false);
             fetchRecentOrders();
+            fetchPendingOrders();
 
             // Ozel Grafik/Teknik Analiz/Kayan Bant motoru (Binance public REST/WS - bkz. loadChart yorumu)
             initTickerTape();
@@ -3734,6 +3797,7 @@ $openSettingsModal = !empty($successMessage) || !empty($errorMessage) || !empty(
             // yuk bindirirdi (1GB RAM'lik VPS + coklu kullanici ihtimali)
             setInterval(fetchBalance,           15000);
             setInterval(fetchActiveTrades,      3000);
+            setInterval(fetchPendingOrders,     3000);
             setInterval(fetchFuturesPositions,  3000);
             setInterval(fetchBotLogs,           60000);
             setInterval(fetchShield,            60000);
@@ -3791,6 +3855,7 @@ $openSettingsModal = !empty($successMessage) || !empty($errorMessage) || !empty(
             fetchScanStatus();
             fetchSystemStatus(false);
             fetchRecentOrders();
+            fetchPendingOrders();
         }
 
         document.addEventListener('visibilitychange', function() {

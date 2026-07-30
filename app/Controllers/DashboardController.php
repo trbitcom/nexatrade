@@ -15,6 +15,7 @@ use App\Models\ApiKey;
 use App\Models\BotLog;
 use App\Models\KnownSymbol;
 use App\Models\Order;
+use App\Models\PendingLimitOrder;
 use App\Models\Setting;
 use App\Models\SymbolCooldown;
 use App\Models\User;
@@ -94,6 +95,9 @@ final class DashboardController
 
         $activeTrades = ActiveTrade::findOpenForUser($userId);
         $activeFuturesTrades = ActiveFuturesTrade::findOpenForUser($userId);
+        // "Bekleyen Emirler" paneli icin - bkz. apiPendingOrders() yorumu, yerel DB okumasi (ag
+        // cagrisi yok), sayfa acilisini yavaslatmaz
+        $pendingOrders = PendingLimitOrder::findByUser($userId);
         $recentListings = KnownSymbol::findRecentlyListed(3, 8);
 
         $successMessage = Session::get('api_key_success');
@@ -966,6 +970,28 @@ final class DashboardController
             error_log('NexaTrade apiLiveChart: ' . $e->getMessage());
             http_response_code(500);
             echo json_encode(['success' => false, 'message' => 'Grafik verisi alınamadı.'], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
+    // "Bekleyen Emirler" paneli (31 Temmuz, musteri talebi: "kactan/ne kadarlik alacagini ONCEDEN
+    // gormek istiyorum") - tum filtrelerden gecip GERCEK bir Binance limit emri konulmus ama henuz
+    // DOLMAMIS adaylari doner (bkz. PendingLimitOrder yorumu). remaining_seconds 0'a inip emir hala
+    // buradaysa bir sonraki Fast Tracker turunde (1dk) iptal edilecek demektir
+    public function apiPendingOrders(): void
+    {
+        $userId = $this->requireAjaxAuth();
+        if ($userId === null) {
+            return;
+        }
+
+        header('Content-Type: application/json');
+
+        try {
+            $orders = PendingLimitOrder::findByUser($userId);
+            echo json_encode(['success' => true, 'orders' => $orders], JSON_UNESCAPED_UNICODE);
+        } catch (Throwable $e) {
+            error_log('[apiPendingOrders] ' . $e->getMessage());
+            echo json_encode(['success' => false, 'message' => 'Bekleyen emirler alınamadı', 'orders' => []], JSON_UNESCAPED_UNICODE);
         }
     }
 
