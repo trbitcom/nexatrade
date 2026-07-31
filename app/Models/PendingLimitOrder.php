@@ -64,12 +64,22 @@ final class PendingLimitOrder
     }
 
     // checkPendingLimitOrders()'ın her Fast Tracker turunda dolup dolmadığını kontrol edeceği TÜM
-    // bekleyen emirler - küçük bir tablo olduğu için (aktif kullanıcı sayısı kadar) filtre gerekmez
+    // bekleyen emirler - küçük bir tablo olduğu için (aktif kullanıcı sayısı kadar) filtre gerekmez.
+    // age_minutes MySQL'in KENDI saatiyle (NOW()) hesaplanir - PHP tarafinda placed_at uzerinden
+    // strtotime()/time() KARSILASTIRMASI ARTIK YAPILMAZ (bkz. SymbolCooldown::getCooldownUntil AYNI
+    // ilke). 31 Temmuz'da ZAMAUSDT #97 canli olayinda tespit edildi: VPS MariaDB Europe/Istanbul'a
+    // ayarliyken PHP'nin varsayilan saat dilimi UTC kaldigi icin eski strtotime()/time() hesabi
+    // gercekte 17dk gecmis bir emri hala "yeni" sanip SONSUZA KADAR iptal etmiyordu (3 saatlik fark,
+    // $ageMinutes hep negatif cikiyordu - her zaman esigin altinda)
     public static function findAll(): array
     {
         $pdo = Database::getInstance();
 
-        return $pdo->query('SELECT * FROM pending_limit_orders ORDER BY id ASC')->fetchAll();
+        return $pdo->query(
+            'SELECT *, TIMESTAMPDIFF(MINUTE, placed_at, NOW()) AS age_minutes
+             FROM pending_limit_orders
+             ORDER BY id ASC'
+        )->fetchAll();
     }
 
     // Dashboard "Bekleyen Emirler" paneli icin (31 Temmuz) - musterinin "kactan/ne kadarlik alacagini

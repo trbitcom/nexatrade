@@ -2235,9 +2235,11 @@ final class AutoTradeController
                 }
 
                 // Hala NEW veya PARTIALLY_FILLED - suresi dolmadiysa dokunma, bir sonraki turda
-                // tekrar kontrol edilecek
-                $placedAt = strtotime((string) $pending['placed_at']);
-                $ageMinutes = $placedAt !== false ? (time() - $placedAt) / 60 : 0;
+                // tekrar kontrol edilecek. age_minutes PendingLimitOrder::findAll()'da MySQL'in
+                // KENDI saatiyle (NOW()) zaten hesaplanmis geliyor - bkz. o metodun yorumu (ZAMAUSDT
+                // #97 canli olayi: PHP strtotime()/time() ile hesaplanan eski versiyon, VPS'te PHP/
+                // MySQL saat dilimi farki yuzunden emri SONSUZA KADAR "yeni" saniyordu)
+                $ageMinutes = (int) ($pending['age_minutes'] ?? 0);
 
                 if ($ageMinutes < self::PENDING_LIMIT_ORDER_TIMEOUT_MINUTES) {
                     continue;

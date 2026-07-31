@@ -2,6 +2,11 @@
 
 Bu dosya NexaTrade'in sürüm geçmişini tutar. Format [Keep a Changelog](https://keepachangelog.com/tr/1.0.0/) ilkelerini, sürümleme ise [Semantic Versioning](https://semver.org/lang/tr/) (Major.Minor.Patch) kurallarını izler.
 
+## [1.81.1] - 2026-07-31
+
+### Hata Düzeltme (Kritik)
+- [AutoTradeController, PendingLimitOrder] Bekleyen limit emirlerinin 15dk zaman aşımı hiç tetiklenmiyordu - canlı olayda tespit edildi (ZAMAUSDT #97, 17dk'dır bekliyordu). Kök neden: yaş hesabı PHP'nin `strtotime()`/`time()`'ı ile yapılıyordu, VPS'te MariaDB `Europe/Istanbul`'a ayarlıyken PHP'nin varsayılan saat dilimi UTC kaldığı için 3 saatlik fark yaşı hep negatif çıkarıyor, emir asla süresi dolmuş sayılmıyordu. `SymbolCooldown`/`ApiKey`'de zaten kullanılan MySQL-taraflı yaş hesabına (`TIMESTAMPDIFF`) geçirildi.
+
 ## [1.81.0] - 2026-07-31
 
 ### Yeni Özellik
