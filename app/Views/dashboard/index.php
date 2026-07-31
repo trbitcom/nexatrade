@@ -918,6 +918,11 @@ $openSettingsModal = !empty($successMessage) || !empty($errorMessage) || !empty(
             <div class="flex-none flex items-center justify-between px-4 py-2.5 border-b border-black/5">
                 <span class="font-mono-tech text-xs tracking-wider text-gray-800">AKTİF AVLAR</span>
                 <div class="flex items-center gap-2">
+                    <!-- Musteri talebi (31 Temmuz): masaustunde "Aktif Avlar" kutusu sabit yukseklikli
+                         ("terminal" tasarimi, sayfa hic kaymaz) - 3'ten fazla pozisyonda kutu ic
+                         kaydirmaya donusuyordu, bu buton sadece o zaman gorunur olup TUMUNU (mevcut
+                         kutuyu/masaustu duzenini BOZMADAN) buyuk bir pencerede gosterir -->
+                    <button type="button" id="viewAllHuntsBtn" onclick="openAllHuntsModal()" class="hidden font-mono-tech text-[9px] tracking-widest text-violet-600 border border-violet-400/30 hover:bg-violet-400/10 rounded px-1.5 py-0.5 transition-colors">TÜMÜNÜ GÖR</button>
                     <span id="huntsUpdatedAt" class="font-mono-tech text-[9px] text-gray-400">—</span>
                     <span id="huntsPositionCount" class="font-mono-tech text-[10px] text-gray-500 tracking-widest"><?= count($activeTrades) + count($activeFuturesTrades) ?> POZİSYON</span>
                 </div>
@@ -1438,6 +1443,25 @@ $openSettingsModal = !empty($successMessage) || !empty($errorMessage) || !empty(
                         </button>
                         <?php endforeach; ?>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tümünü Gör Modalı (31 Temmuz, müşteri talebi): masaüstünde "Aktif Avlar" kutusu sabit
+         yükseklikli olduğu için 3'ten fazla pozisyonda iç kaydırmaya dönüşüyordu - bu modal
+         #huntsContainer'ın GÜNCEL içeriğini (kartları YENİDEN OLUŞTURMADAN, doğrudan klonlayarak -
+         bkz. openAllHuntsModal) büyük bir pencerede, kaydırmadan gösterir -->
+    <div id="allHuntsModal" class="fixed inset-0 z-50 hidden">
+        <div id="allHuntsBackdrop" onclick="closeAllHuntsModal()" class="absolute inset-0 bg-black/70 backdrop-blur-sm opacity-0 transition-opacity duration-200"></div>
+        <div class="relative h-full flex items-center justify-center p-4">
+            <div id="allHuntsPanel" class="glass-panel relative rounded-2xl w-full max-w-2xl max-h-[85vh] flex flex-col opacity-0 scale-95 transition-all duration-200">
+                <div class="flex-none flex items-center justify-between px-5 py-4 border-b border-black/5">
+                    <span class="font-display font-semibold text-gray-900">Tüm Açık Pozisyonlar</span>
+                    <button type="button" onclick="closeAllHuntsModal()" class="text-gray-500 hover:text-gray-900 transition-colors text-xl leading-none">&times;</button>
+                </div>
+                <div id="allHuntsList" class="flex-1 min-h-0 overflow-y-auto thin-scroll p-4 space-y-2">
+                    <p class="font-mono-tech text-xs text-gray-500">Yükleniyor…</p>
                 </div>
             </div>
         </div>
@@ -3392,6 +3416,10 @@ $openSettingsModal = !empty($successMessage) || !empty($errorMessage) || !empty(
             updateHuntsCountBadge();
         }
 
+        // Masaustunde "Aktif Avlar" kutusu 3'ten fazla pozisyonda ic kaydirmaya donusuyor - bu
+        // esigin ustunde "TÜMÜNÜ GÖR" butonu gorunur olur (bkz. openAllHuntsModal)
+        var VIEW_ALL_HUNTS_THRESHOLD = 3;
+
         function updateHuntsCountBadge() {
             var badge = document.getElementById('huntsPositionCount');
             var container = document.getElementById('huntsContainer');
@@ -3399,15 +3427,49 @@ $openSettingsModal = !empty($successMessage) || !empty($errorMessage) || !empty(
 
             var spotCount = document.querySelectorAll('[data-hunt-card]').length;
             var futuresCount = document.querySelectorAll('[data-futures-progress]').length;
-            badge.textContent = (spotCount + futuresCount) + ' POZİSYON';
+            var totalCount = spotCount + futuresCount;
+            badge.textContent = totalCount + ' POZİSYON';
 
-            if (spotCount + futuresCount === 0 && !container.querySelector('[data-hunts-empty]')) {
+            var viewAllBtn = document.getElementById('viewAllHuntsBtn');
+            if (viewAllBtn) { viewAllBtn.classList.toggle('hidden', totalCount <= VIEW_ALL_HUNTS_THRESHOLD); }
+
+            if (totalCount === 0 && !container.querySelector('[data-hunts-empty]')) {
                 var p = document.createElement('p');
                 p.setAttribute('data-hunts-empty', '1');
                 p.className = 'font-mono-tech text-xs text-gray-500';
                 p.textContent = 'Açık pozisyon yok';
                 container.appendChild(p);
             }
+        }
+
+        // #huntsContainer'in GUNCEL icerigini (kartlari YENIDEN OLUSTURMADAN, dogrudan klonlayarak -
+        // syncHuntCards()/futures render'i zaten dogru/guncel HTML'i uretmis durumda) buyuk bir
+        // pencerede gosterir - masaustundeki sabit-yukseklikli "terminal" kutusunu BOZMADAN, sadece
+        // ihtiyac aninda tam listeyi acar (musteri talebi, 31 Temmuz)
+        function openAllHuntsModal() {
+            var modal = document.getElementById('allHuntsModal');
+            var backdrop = document.getElementById('allHuntsBackdrop');
+            var panel = document.getElementById('allHuntsPanel');
+            var list = document.getElementById('allHuntsList');
+            var source = document.getElementById('huntsContainer');
+            if (!modal || !list || !source) return;
+
+            list.innerHTML = source.innerHTML;
+
+            modal.classList.remove('hidden');
+            requestAnimationFrame(function () {
+                backdrop.classList.remove('opacity-0');
+                panel.classList.remove('opacity-0', 'scale-95');
+            });
+        }
+
+        function closeAllHuntsModal() {
+            var modal = document.getElementById('allHuntsModal');
+            var backdrop = document.getElementById('allHuntsBackdrop');
+            var panel = document.getElementById('allHuntsPanel');
+            backdrop.classList.add('opacity-0');
+            panel.classList.add('opacity-0', 'scale-95');
+            setTimeout(function () { modal.classList.add('hidden'); }, 200);
         }
 
         // Sunucudan hic yanit alinamadiginda (ör. API/Binance erisilemez durumda), pozisyon
