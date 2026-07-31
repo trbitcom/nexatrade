@@ -2,6 +2,14 @@
 
 Bu dosya NexaTrade'in sürüm geçmişini tutar. Format [Keep a Changelog](https://keepachangelog.com/tr/1.0.0/) ilkelerini, sürümleme ise [Semantic Versioning](https://semver.org/lang/tr/) (Major.Minor.Patch) kurallarını izler.
 
+## [1.83.1] - 2026-07-31
+
+### Hata Düzeltme
+- [dashboard/index.php] Mobilde Kayan Fiyat Bandı'nın altındaki rakamlar tam görünmüyordu - TradingView Ticker Tape widget'ının `displayMode: "adaptive"` ayarı dar ekranda sürekli kayan tek satır yerine 2 satırlık bir ızgaraya dönüşüp sabit 46px'lik container'da kırpılıyordu (yüzde değişim satırı hiç görünmüyordu, son sembol yatay kesiliyordu). `"regular"` sabitlendi - Playwright ile mobil viewport'ta doğrulandı.
+
+### İyileştirme
+- [dashboard/index.php] Mobilde "Aktif Avlar" paneli artık Ana Grafik'in ÜSTÜNDE gösteriliyor - müşteri talebi: açık pozisyonları grafiği kaydırmadan hemen görmek istiyor. `.terminal-grid`'in mobil `display:block`'u `display:flex; flex-direction:column`'a çevrildi (görsel davranış aynı kaldı) ve `.area-hunts`'a `order:-1` verildi - masaüstü grid sırası/HTML yapısı DEĞİŞMEDİ, sadece mobilde CSS ile öne alındı.
+
 ## [1.83.0] - 2026-07-31
 
 ### Yeni Özellik

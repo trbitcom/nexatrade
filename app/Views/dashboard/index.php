@@ -320,14 +320,25 @@ $openSettingsModal = !empty($successMessage) || !empty($errorMessage) || !empty(
                 overflow: auto;
             }
 
+            /* display:flex + flex-direction:column, display:block'un YERINE - tek sutunlu dikey
+               istifleme davranisi AYNI kalir, ama order ile ozel bir sirlama YAPILABILIR hale gelir
+               (bkz. .area-hunts kurali, 31 Temmuz - musteri talebi: mobilde Aktif Avlar grafigin USTUNE) */
             .terminal-grid {
-                display: block;
+                display: flex;
+                flex-direction: column;
                 height: auto;
             }
 
             .terminal-grid > div {
                 margin-bottom: 0.75rem;
                 max-height: 420px;
+            }
+
+            /* Musteri talebi (31 Temmuz): mobilde acik pozisyonlari HEMEN gormek istiyor, grafigi
+               kaydirmadan once - HTML sirasini (masaustunde grid-area ile bagimsiz konumlanan
+               duzeni) degistirmeden SADECE mobilde en basa alinir */
+            .terminal-grid > .area-hunts {
+                order: -1;
             }
 
             /* Grafik (mum + fiyat ekseni + zaman butonlari), diger kucuk liste panellerinden
@@ -535,7 +546,11 @@ $openSettingsModal = !empty($successMessage) || !empty($errorMessage) || !empty(
          musteri talebi: "ikonlar kayan seritte tradingview olsun" (coin logolari). Ana Grafik'teki AYNI
          gerekce (bkz. o panelin yorumu, 22 Temmuz "bad auth token" artik gecerli degil - ozel VPS IP'si).
          Eski Binance-REST-tabanli ozel serit (initTickerTape/refreshTickerTape) kod tabaninda BOZULMADAN
-         duruyor (kullanilmiyor) - tekrar sorun cikarsa hizli geri donus icin -->
+         duruyor (kullanilmiyor) - tekrar sorun cikarsa hizli geri donus icin.
+         displayMode: "adaptive" (ilk deneme) mobilde surekli kayan TEK satir yerine 2 satirlik bir
+         izgaraya donusup sabit 46px yukseklikli container'da kirpiliyordu (yuzde degisim satiri hic
+         gorunmuyordu, son sembol yatay kesiliyordu) - "regular" sabitlendi, genislik ne olursa olsun
+         TEK satir kayan bant garanti eder (Playwright ile mobil viewport'ta dogrulandi) -->
     <div class="flex-none h-[46px] overflow-hidden border-b border-violet-500/10 bg-white/70 relative">
         <div class="tradingview-widget-container" style="height:100%;width:100%">
             <div class="tradingview-widget-container__widget"></div>
@@ -550,7 +565,7 @@ $openSettingsModal = !empty($successMessage) || !empty($errorMessage) || !empty(
                 ],
                 "showSymbolLogo": true,
                 "isTransparent": true,
-                "displayMode": "adaptive",
+                "displayMode": "regular",
                 "colorTheme": "light",
                 "locale": "tr"
             }
