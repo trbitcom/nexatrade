@@ -2,11 +2,6 @@
 
 Bu dosya NexaTrade'in sürüm geçmişini tutar. Format [Keep a Changelog](https://keepachangelog.com/tr/1.0.0/) ilkelerini, sürümleme ise [Semantic Versioning](https://semver.org/lang/tr/) (Major.Minor.Patch) kurallarını izler.
 
-## [1.86.1] - 2026-07-31
-
-### Hata Düzeltme
-- [dashboard/index.php] "TÜMÜNÜ GÖR" butonu 3 pozisyonda bile görünmüyordu - müşteri geri bildirimi. Kök neden: sabit bir sayı eşiği (>3) kullanılıyordu, gerçek kart yüksekliği/ekran boyutu değişkenliğini hesaba katmıyordu. Artık `#huntsContainer`'ın GERÇEK taşma durumu (`scrollHeight > clientHeight`) ölçülüyor - kaç pozisyon olursa olsun, kutu gerçekten kaydırma gerektiriyorsa buton görünür. Gerçekçi 3 kartla (`syncHuntCards()` doğrudan çağrılarak) doğrulandı: scrollHeight 362 > clientHeight 302, buton doğru şekilde göründü.
-
 ## [1.86.0] - 2026-07-31
 
 ### Yeni Özellik
