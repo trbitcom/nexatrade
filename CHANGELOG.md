@@ -2,6 +2,11 @@
 
 Bu dosya NexaTrade'in sürüm geçmişini tutar. Format [Keep a Changelog](https://keepachangelog.com/tr/1.0.0/) ilkelerini, sürümleme ise [Semantic Versioning](https://semver.org/lang/tr/) (Major.Minor.Patch) kurallarını izler.
 
+## [1.85.0] - 2026-07-31
+
+### Hata Düzeltme (Kritik) - Kök Neden
+- [public/index.php] PHP'nin varsayılan saat dilimi hiçbir yerde ayarlanmamıştı (fallback UTC), VPS'teki MariaDB ise Europe/Istanbul - bu fark aynı türden ÜÇ AYRI canlı bug'a yol açmıştı (PendingLimitOrder zaman aşımı/ZAMAUSDT #97, Fitil Koruması sıkılaştırması hiç çalışmıyordu, TradePostMortemService'in "0.0 dakika" yanlış etiketi - gerçek veride 14/21 kayıpta görüldü, gerçek süreler 3dk-2sa arasıydı). `date_default_timezone_set('Europe/Istanbul')` eklendi (hem HTTP hem CLI/cron aynı bu dosyadan geçtiği için ikisini de kapsar) - `strtotime()` artık MySQL ile AYNI saat diliminde yorum yapıyor, bu SINIFTAKİ tüm hatalar (bulunanlar + henüz bulunmamış olabilecekler) tek noktadan düzeldi. Yerelde doğrulandı (MySQL NOW() ile strtotime()/time() farkı artık doğru, ~0 dakika çıkıyor).
+
 ## [1.84.2] - 2026-07-31
 
 ### Hata Düzeltme (Kritik)

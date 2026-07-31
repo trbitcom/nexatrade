@@ -2,6 +2,18 @@
 
 declare(strict_types=1);
 
+// 31 Temmuz'da eklendi: KOK NEDEN duzeltmesi - PHP'nin varsayilan saat dilimi hicbir yerde
+// ayarlanmamisti (fallback UTC), VPS'teki MariaDB ise Europe/Istanbul (bkz. 29 Temmuz migration
+// notlari). Bu fark, ayni turden UC AYRI canli bug'a yol acti: PendingLimitOrder zaman asimi
+// (ZAMAUSDT #97), Fitil Korumasi sikilastirmasi (hic calismiyordu), TradePostMortemService
+// checkRapidLoss() ("0.0 dakika" yanlis etiketi, gercek veride 14/21 kayipta goruldu) - ucu de
+// strtotime(MySQL_zaman_damgasi) sonucunu time()'in DONDURDUGU gercek UTC epoch ile karsilastiriyordu.
+// Bu tek satir, strtotime()'in ArtIK MySQL ile AYNI saat diliminde yorum yapmasini saglayarak TUM
+// bu sinifi (bulunanlar + henuz bulunmamis olabilecekler) tek noktadan duzeltir - time() zaten
+// HER ZAMAN saat-dilimi-bagimsiz gercek UTC epoch dondurur, bundan ETKILENMEZ. Hem HTTP hem CLI
+// (cron) istekleri AYNI bu dosyadan gectigi icin (bkz. CliKernel) her iki yolu da kapsar
+date_default_timezone_set('Europe/Istanbul');
+
 // Uygulama giris noktasi (front controller)
 
 // Basit PSR-4 benzeri otomatik yukleyici: App\ namespace'ini app/ dizinine baglar
