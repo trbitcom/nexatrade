@@ -63,6 +63,23 @@ final class PendingLimitOrder
         return ((int) $stmt->fetchColumn()) > 0;
     }
 
+    // Per-user maksimum acik pozisyon limitinin (max_active_trades) BEKLEYEN emirleri de sayabilmesi
+    // icin - 31 Temmuz'da canli olayda tespit edildi (Kullanici #1, agresif profil, limit 5): huntFor
+    // AllUsers()'daki limit kontrolu SADECE ActiveTrade::countOpenForUser() (zaten DOLMUS pozisyonlar)
+    // kullaniyordu, henuz doldurulmamis bekleyen limit emirlerini HIC saymiyordu. Ayni tarama turunda
+    // (veya art arda birkac turda) birden fazla FARKLI pariteye pending emir konulup HEPSI sonradan
+    // doldugunda, gercek acik pozisyon sayisi limitin cok UZERINE cikabiliyordu - gercek veride zirve
+    // 8'e kadar cikmis (limit 5). bkz. AutoTradeController::huntForAllUsers() cagri noktasi
+    public static function countForUser(int $userId): int
+    {
+        $pdo = Database::getInstance();
+
+        $stmt = $pdo->prepare('SELECT COUNT(*) FROM pending_limit_orders WHERE user_id = :user_id');
+        $stmt->execute([':user_id' => $userId]);
+
+        return (int) $stmt->fetchColumn();
+    }
+
     // checkPendingLimitOrders()'ın her Fast Tracker turunda dolup dolmadığını kontrol edeceği TÜM
     // bekleyen emirler - küçük bir tablo olduğu için (aktif kullanıcı sayısı kadar) filtre gerekmez.
     // age_minutes MySQL'in KENDI saatiyle (NOW()) hesaplanir - PHP tarafinda placed_at uzerinden

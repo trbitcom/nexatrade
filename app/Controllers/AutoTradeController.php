@@ -1542,13 +1542,17 @@ final class AutoTradeController
                 continue;
             }
 
-            // Per-user maksimum acik pozisyon limiti
+            // Per-user maksimum acik pozisyon limiti - DOLMUS pozisyonlar + HENUZ DOLMAMIS bekleyen
+            // limit emirleri BIRLIKTE sayilir (31 Temmuz'da eklendi, bkz. PendingLimitOrder::
+            // countForUser() yorumu - eskiden sadece dolmus pozisyonlar sayildigi icin ayni turda
+            // birden fazla pariteye pending emir konulup hepsi doldugunda gercek acik pozisyon sayisi
+            // limitin cok uzerine cikabiliyordu, canli veride zirve 8'e kadar cikmisti)
             $maxTrades = (int) ($userKey['max_active_trades'] ?? 3);
-            $openCount = ActiveTrade::countOpenForUser($userId);
+            $openCount = ActiveTrade::countOpenForUser($userId) + PendingLimitOrder::countForUser($userId);
 
             if ($openCount >= $maxTrades) {
                 $this->logAutomationError(sprintf(
-                    'Kullanıcı #%d: %s için alım atlandı - açık pozisyon limiti doldu (%d/%d).',
+                    'Kullanıcı #%d: %s için alım atlandı - açık pozisyon limiti doldu (%d/%d, bekleyen emirler dahil).',
                     $userId,
                     $pair,
                     $openCount,

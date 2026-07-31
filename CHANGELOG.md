@@ -2,6 +2,11 @@
 
 Bu dosya NexaTrade'in sürüm geçmişini tutar. Format [Keep a Changelog](https://keepachangelog.com/tr/1.0.0/) ilkelerini, sürümleme ise [Semantic Versioning](https://semver.org/lang/tr/) (Major.Minor.Patch) kurallarını izler.
 
+## [1.84.1] - 2026-07-31
+
+### Hata Düzeltme (Kritik)
+- [AutoTradeController, PendingLimitOrder] Per-kullanıcı maksimum açık pozisyon limiti (`max_active_trades` - Güvenli 1/Dengeli 3/Agresif 5) canlı veride sistematik olarak aşılıyordu - Kullanıcı #1 (agresif, limit 5) için gerçek zirve eşzamanlı pozisyon sayısı 8'e kadar çıkmıştı, birden fazla kez 6-7'ye ulaşmıştı. Kök neden: limit kontrolü sadece ZATEN DOLMUŞ pozisyonları sayıyordu (`ActiveTrade::countOpenForUser`), henüz dolmamış bekleyen limit emirlerini hiç saymıyordu - aynı veya art arda birkaç tarama turunda farklı paritelere konulan pending emirlerin TAMAMI sonradan dolduğunda gerçek pozisyon sayısı limitin çok üzerine çıkabiliyordu. Artık `PendingLimitOrder::countForUser()` ile bekleyen emirler de sayıma dahil ediliyor.
+
 ## [1.84.0] - 2026-07-31
 
 ### Yeni Özellik
