@@ -66,11 +66,18 @@ final class ActiveTrade
     // guncellenmis olabilir (PHP dizileri referansla degil kopyalanarak gectigi icin dongu
     // degiskeni STALE kalir) - tightenStopLossIfEligible() bu yuzden karar vermeden once
     // guncel trailing_stop_stage/partial_tp_executed/is_sl_tightened degerlerini burdan okur
+    // seconds_since_opened: MySQL'in KENDI saatiyle (NOW()) hesaplanir - PHP tarafinda opened_at
+    // uzerinden strtotime()/time() KARSILASTIRMASI YAPILMAMALI (bkz. tightenStopLossIfEligible'da
+    // 31 Temmuz'da bulunan hata: VPS'te MariaDB Europe/Istanbul, PHP varsayilan UTC oldugu icin
+    // strtotime(opened_at) - PHP'nin time()'indan 3 saat ILERI cikiyordu, fark HER ZAMAN buyuk bir
+    // NEGATIF sayi oluyordu - Fitil Korumasi sikilastirmasi SONSUZA KADAR "henuz vakti gelmedi"
+    // saniyordu, pozisyonlar hep genis/gevsek Zarar Kes'te kalip niyet edilenden cok daha az korumali
+    // oluyordu). Ayni SymbolCooldown/PendingLimitOrder ilkesi burada da uygulanir
     public static function findById(int $id): ?array
     {
         $pdo = Database::getInstance();
 
-        $stmt = $pdo->prepare('SELECT * FROM active_trades WHERE id = :id');
+        $stmt = $pdo->prepare('SELECT *, TIMESTAMPDIFF(SECOND, opened_at, NOW()) AS seconds_since_opened FROM active_trades WHERE id = :id');
         $stmt->execute([':id' => $id]);
         $row = $stmt->fetch();
 

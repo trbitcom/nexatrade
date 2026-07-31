@@ -3775,9 +3775,12 @@ final class AutoTradeController
             return; // OCO'suz/korumasiz durum - baska bir mekanizma zaten ilgileniyor
         }
 
-        $openedAt = strtotime((string) $fresh['opened_at']);
+        // bkz. ActiveTrade::findById() yorumu - seconds_since_opened MySQL'in KENDI saatiyle
+        // hesaplanir, PHP strtotime()/time() KARSILASTIRMASI ARTIK YAPILMAZ (31 Temmuz'da bulunan
+        // hata: bu satir eskiden HER ZAMAN "henuz vakti gelmedi" saniyordu)
+        $secondsSinceOpened = $fresh['seconds_since_opened'] ?? null;
 
-        if ($openedAt === false || (time() - $openedAt) < self::WICK_SHIELD_MINUTES * 60) {
+        if ($secondsSinceOpened === null || (int) $secondsSinceOpened < self::WICK_SHIELD_MINUTES * 60) {
             return; // henuz vakti gelmedi
         }
 

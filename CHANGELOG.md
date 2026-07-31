@@ -2,6 +2,11 @@
 
 Bu dosya NexaTrade'in sürüm geçmişini tutar. Format [Keep a Changelog](https://keepachangelog.com/tr/1.0.0/) ilkelerini, sürümleme ise [Semantic Versioning](https://semver.org/lang/tr/) (Major.Minor.Patch) kurallarını izler.
 
+## [1.84.2] - 2026-07-31
+
+### Hata Düzeltme (Kritik)
+- [AutoTradeController, ActiveTrade] Fitil Koruması (Wick Shield) SONSUZA KADAR sıkılaştırılmıyordu - "neden kaybettik" analizinde tespit edildi. Kök neden: `tightenStopLossIfEligible()` geçen süreyi PHP'nin `strtotime()`/`time()`'ı ile hesaplıyordu (ZAMAUSDT #97 ve BANKUSDT/ADAUSDT NOTIONAL olaylarındaki AYNI hata sınıfı, üçüncü kez bulundu) - VPS'te MariaDB Europe/Istanbul, PHP varsayılan UTC olduğu için fark HER ZAMAN büyük bir negatif sayı çıkıyor, "henüz vakti gelmedi" kontrolü asla geçilemiyordu. Sonuç: her pozisyon, girişten sonra kullanıcının GERÇEK Zarar Kes yüzdesine (Güvenli %2/Dengeli %5/Agresif %10) hiç sıkılaştırılmadan, sürekli geniş (2 katı, en az %3) "fitil koruması" seviyesinde kalıyordu. `ActiveTrade::findById()` artık `TIMESTAMPDIFF(SECOND, opened_at, NOW())` ile MySQL'in kendi saatiyle hesaplanan `seconds_since_opened` alanını döndürüyor, PHP tarafında ayrıca saat karşılaştırması yapılmıyor.
+
 ## [1.84.1] - 2026-07-31
 
 ### Hata Düzeltme (Kritik)
