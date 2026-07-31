@@ -26,6 +26,7 @@ use App\Services\MarketScanner;
 use App\Services\NewsService;
 use App\Services\RiskProfileService;
 use App\Services\SentimentService;
+use App\Services\CoinIconService;
 use App\Services\ServerInfoService;
 use Throwable;
 
@@ -992,6 +993,30 @@ final class DashboardController
         } catch (Throwable $e) {
             error_log('[apiPendingOrders] ' . $e->getMessage());
             echo json_encode(['success' => false, 'message' => 'Bekleyen emirler alınamadı', 'orders' => []], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
+    // Coin ikonlari (31 Temmuz, musteri talebi: "AI Radar/AI Monolog/Aktif Avlar/Gecmiste coin
+    // adinin basinda kucuk ikon olsun") - bkz. CoinIconService yorumu. Istemci tarafi ekrandaki
+    // TUM sembolleri TEK istekte gonderir (ör. "BTC,ETH,SKHYB"), zaten onbelleklenmis olanlar
+    // aninda, eksik olanlar CoinGecko'dan TEK toplu cagriyla doner
+    public function apiCoinIcons(): void
+    {
+        $userId = $this->requireAjaxAuth();
+        if ($userId === null) {
+            return;
+        }
+
+        header('Content-Type: application/json');
+
+        try {
+            $symbolsParam = (string) ($_GET['symbols'] ?? '');
+            $baseAssets = array_filter(array_map('trim', explode(',', $symbolsParam)));
+            $icons = (new CoinIconService())->getIconUrls($baseAssets);
+            echo json_encode(['success' => true, 'icons' => $icons], JSON_UNESCAPED_UNICODE);
+        } catch (Throwable $e) {
+            error_log('[apiCoinIcons] ' . $e->getMessage());
+            echo json_encode(['success' => false, 'icons' => []], JSON_UNESCAPED_UNICODE);
         }
     }
 

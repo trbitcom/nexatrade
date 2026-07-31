@@ -847,7 +847,7 @@ $openSettingsModal = !empty($successMessage) || !empty($errorMessage) || !empty(
                                 ?>
                                 <?php $lossReason = (string) ($order['loss_reason'] ?? ''); ?>
                                 <tr class="border-t border-black/5 hover:bg-black/[0.015] cursor-pointer transition-colors" onclick="openOrderDetail(<?= (int) $order['id'] ?>)">
-                                    <td class="px-4 py-1.5 font-semibold text-gray-800"><?= htmlspecialchars((string) $order['pair'], ENT_QUOTES, 'UTF-8') ?></td>
+                                    <td data-coin-name="<?= htmlspecialchars((string) $order['pair'], ENT_QUOTES, 'UTF-8') ?>" class="px-4 py-1.5 font-semibold text-gray-800"><?= htmlspecialchars((string) $order['pair'], ENT_QUOTES, 'UTF-8') ?></td>
                                     <td class="px-2 py-1.5">
                                         <span class="rounded px-1.5 py-0.5 <?= $sideClasses ?>"><?= $sideLabel ?></span>
                                         <?php if ($lossReason !== ''): ?>
@@ -891,7 +891,7 @@ $openSettingsModal = !empty($successMessage) || !empty($errorMessage) || !empty(
                         <div class="flex justify-between items-center">
                             <span class="flex items-center gap-1.5">
                                 <span class="font-mono-tech text-[9px] font-bold text-amber-600 border border-amber-400/40 rounded px-1 py-0.5">⏳ BEKLİYOR</span>
-                                <span class="font-mono-tech text-xs font-semibold text-gray-800"><?= htmlspecialchars((string) $po['pair'], ENT_QUOTES, 'UTF-8') ?></span>
+                                <span data-coin-name="<?= htmlspecialchars((string) $po['pair'], ENT_QUOTES, 'UTF-8') ?>" class="font-mono-tech text-xs font-semibold text-gray-800"><?= htmlspecialchars((string) $po['pair'], ENT_QUOTES, 'UTF-8') ?></span>
                             </span>
                             <span data-pending-remaining="<?= (int) $po['id'] ?>" class="font-mono-tech text-[9px] text-amber-600"><?= (int) round(((int) $po['remaining_seconds']) / 60) ?> dk kaldı</span>
                         </div>
@@ -921,7 +921,7 @@ $openSettingsModal = !empty($successMessage) || !empty($errorMessage) || !empty(
                             <div class="flex justify-between items-center mb-1">
                                 <span class="flex items-center gap-1.5">
                                     <span class="font-mono-tech text-[9px] font-bold text-emerald-600 border border-emerald-400/40 rounded px-1 py-0.5">UZUN</span>
-                                    <span class="font-mono-tech text-xs font-semibold text-gray-800"><?= htmlspecialchars((string) $trade['pair'], ENT_QUOTES, 'UTF-8') ?></span>
+                                    <span data-coin-name="<?= htmlspecialchars((string) $trade['pair'], ENT_QUOTES, 'UTF-8') ?>" class="font-mono-tech text-xs font-semibold text-gray-800"><?= htmlspecialchars((string) $trade['pair'], ENT_QUOTES, 'UTF-8') ?></span>
                                     <span data-trade-shield="<?= $tradeId ?>" class="font-mono-tech text-[9px] font-bold rounded px-1 py-0.5 border <?= $trailingStage >= 1 ? 'text-violet-600 border-violet-400/40' : 'text-gray-400 border-black/10' ?>"><?= $trailingStage >= 1 ? '🛡️ AKTİF' : '🛡️ PASİF' ?></span>
                                 </span>
                                 <span class="font-mono-tech text-[10px] text-gray-500">Giriş: $<?= $formatTradePrice($entryPrice) ?></span>
@@ -2181,7 +2181,7 @@ $openSettingsModal = !empty($successMessage) || !empty($errorMessage) || !empty(
                     : '';
 
                 return '<tr class="border-t border-black/5 hover:bg-black/[0.015] cursor-pointer transition-colors" onclick="openOrderDetail(' + order.id + ')">'
-                    + '<td class="px-4 py-1.5 font-semibold text-gray-800">' + escapeHtml(order.pair) + '</td>'
+                    + '<td data-coin-name="' + escapeHtml(order.pair) + '" class="px-4 py-1.5 font-semibold text-gray-800">' + coinIconHtml(order.pair) + escapeHtml(order.pair) + '</td>'
                     + '<td class="px-2 py-1.5"><span class="rounded px-1.5 py-0.5 ' + sideClass + '">' + sideLabel + '</span>' + lossBadge + '</td>'
                     + '<td class="px-2 py-1.5 text-gray-600">' + order.quantity + '</td>'
                     + '<td class="px-2 py-1.5 text-gray-600">$' + formatFullPrecisionPrice(order.price) + '</td>'
@@ -2582,6 +2582,90 @@ $openSettingsModal = !empty($successMessage) || !empty($errorMessage) || !empty(
             });
         }
 
+        // Coin İkonları (31 Temmuz, müşteri talebi) - bkz. CoinIconService/apiCoinIcons yorumu.
+        // _coinIconCache: taban sembol (ör. 'BTC') -> logo URL'i, ya da null (bulunamadı, tekrar
+        // İSTENMEZ - hasOwnProperty ile "hiç sorulmadı" / "soruldu, yok" ayrımı yapılır)
+        var _coinIconCache = {};
+        var _coinIconPending = {};
+        var _coinIconFetchTimer = null;
+
+        function baseAssetFromPair(pair) {
+            return String(pair || '').toUpperCase().replace(/USDT$/, '');
+        }
+
+        // HTML dizgisi üreten render fonksiyonları (renderRadar/renderMonolog/renderRecentOrders/
+        // renderOrderHistoryRows/syncHuntCards) içinde KULLANILIR - önbellekte varsa <img> HTML'i
+        // döner, yoksa boş dizgi döner (bu turda ikonsuz görünür, arka planda getirilmesi kuyruğa
+        // eklenir - bkz. backfillCoinIcons, ikon gelince sayfa YENİDEN ÇİZİLMEDEN eklenir)
+        function coinIconHtml(pair) {
+            var asset = baseAssetFromPair(pair);
+            if (!asset) { return ''; }
+            if (Object.prototype.hasOwnProperty.call(_coinIconCache, asset)) {
+                var url = _coinIconCache[asset];
+                return url ? '<img src="' + url + '" alt="" class="coin-icon w-3.5 h-3.5 rounded-full inline-block align-[-2px] mr-1" loading="lazy" onerror="this.remove()">' : '';
+            }
+            queueCoinIconFetch(asset);
+            return '';
+        }
+
+        function queueCoinIconFetch(asset) {
+            if (_coinIconPending[asset]) { return; }
+            _coinIconPending[asset] = true;
+            if (_coinIconFetchTimer) { return; }
+            // Kisa bir gecikmeyle (250ms) biriktirilir - ayni render turunda istenen COK sayida
+            // yeni sembol TEK bir /api/dashboard/coin-icons istegine toplanir, her biri icin ayri
+            // ayri istek atilmaz (CoinGecko rate limit riskini azaltir)
+            _coinIconFetchTimer = setTimeout(flushCoinIconFetch, 250);
+        }
+
+        function flushCoinIconFetch() {
+            var assets = Object.keys(_coinIconPending);
+            _coinIconPending = {};
+            _coinIconFetchTimer = null;
+            if (!assets.length) { return; }
+
+            safeFetch('/api/dashboard/coin-icons?symbols=' + encodeURIComponent(assets.join(',')))
+                .then(function (d) {
+                    if (!d.success) { return; }
+                    Object.keys(d.icons).forEach(function (sym) { _coinIconCache[sym] = d.icons[sym]; });
+                    backfillCoinIcons();
+                })
+                .catch(function () {});
+        }
+
+        // Sayfa PHP tarafinda ilk render edildiginde (Aktif Avlar/Bekleyen Emirler/Son Islemler)
+        // olusan [data-coin-name] elemanlari icin ikon istegini baslatir - bu elemanlar coinIconHtml()
+        // UZERINDEN GECMEDIGI icin (PHP render'i, JS degil) kimse onlarin ikonunu kuyruga eklemez,
+        // sayfa yuklenince BIR KEZ taranip eksik olanlar kuyruga alinir
+        function queueVisibleCoinIcons() {
+            document.querySelectorAll('[data-coin-name]').forEach(function (el) {
+                var asset = baseAssetFromPair(el.getAttribute('data-coin-name'));
+                if (asset && !Object.prototype.hasOwnProperty.call(_coinIconCache, asset)) {
+                    queueCoinIconFetch(asset);
+                }
+            });
+        }
+
+        // Zaten DOM'da olan (ör. PHP ilk render'inde ikonsuz cizilmis) [data-coin-name] elemanlarina,
+        // onbellek sonradan doldukca ikonu EKLER - kart/satiri YENIDEN OLUSTURMADAN. Hem PHP'nin
+        // sunucu-render ettigi (Aktif Avlar/Son Islemler ilk yukleme) hem JS'in urettigi HTML'de
+        // AYNI [data-coin-name] deseni kullanilir
+        function backfillCoinIcons() {
+            document.querySelectorAll('[data-coin-name]').forEach(function (el) {
+                if (el.querySelector('img.coin-icon')) { return; }
+                var asset = baseAssetFromPair(el.getAttribute('data-coin-name'));
+                var url = _coinIconCache[asset];
+                if (!url) { return; }
+                var img = document.createElement('img');
+                img.src = url;
+                img.alt = '';
+                img.className = 'coin-icon w-3.5 h-3.5 rounded-full inline-block align-[-2px] mr-1';
+                img.loading = 'lazy';
+                img.onerror = function () { img.remove(); };
+                el.insertBefore(img, el.firstChild);
+            });
+        }
+
         // Rakamlar yenilendiginde (bakiye/portfoy/pnl) direkt zip diye degismek yerine
         // eski degerden yeniye dogru sayarak akar; degisim yonune gore kisa bir yesil/kirmizi
         // "flash" ile de vurgulanir - ilk yuklemede (henuz rawValue yoksa) 0'dan sayarak baslar.
@@ -2793,7 +2877,7 @@ $openSettingsModal = !empty($successMessage) || !empty($errorMessage) || !empty(
                 html += '<div class="rounded-lg px-2 py-1.5 ' + (isBuy ? 'signal-row' : 'hover:bg-black/5')
                     + ' cursor-pointer transition-colors" onclick="loadChart(\'BINANCE:' + escapeJsAttr(item.symbol) + '\')">'
                     + '<div class="flex justify-between items-center mb-0.5">'
-                    + '<span class="font-mono-tech text-xs font-semibold text-gray-800">' + escapeHtml(item.symbol) + badge + '</span>'
+                    + '<span data-coin-name="' + escapeHtml(item.symbol) + '" class="font-mono-tech text-xs font-semibold text-gray-800">' + coinIconHtml(item.symbol) + escapeHtml(item.symbol) + badge + '</span>'
                     + '<span class="font-mono-tech text-[10px] font-bold ' + chgCls + '">'
                     + (change >= 0 ? '+' : '') + change.toFixed(2) + '%</span>'
                     + '</div>'
@@ -3198,7 +3282,7 @@ $openSettingsModal = !empty($successMessage) || !empty($errorMessage) || !empty(
                     '<div class="flex justify-between items-center mb-1">'
                     + '<span class="flex items-center gap-1.5">'
                     + '<span class="font-mono-tech text-[9px] font-bold text-emerald-600 border border-emerald-400/40 rounded px-1 py-0.5">UZUN</span>'
-                    + '<span class="font-mono-tech text-xs font-semibold text-gray-800">' + escapeHtml(t.pair || '') + '</span>'
+                    + '<span data-coin-name="' + escapeHtml(t.pair || '') + '" class="font-mono-tech text-xs font-semibold text-gray-800">' + coinIconHtml(t.pair) + escapeHtml(t.pair || '') + '</span>'
                     + '<span data-trade-shield="' + id + '" class="font-mono-tech text-[9px] font-bold rounded px-1 py-0.5 border text-gray-400 border-black/10">🛡️ PASİF</span>'
                     + '</span>'
                     + '<span class="font-mono-tech text-[10px] text-gray-500">Giriş: ' + fmt$(t.entry_price) + '</span>'
@@ -3488,12 +3572,15 @@ $openSettingsModal = !empty($successMessage) || !empty($errorMessage) || !empty(
                 var clr    = opened ? 'text-emerald-600' : (log.notes ? 'text-rose-600' : 'text-gray-500');
                 html += '<div class="monolog-line ' + clr + ' leading-4 py-0.5">'
                     + '<span class="text-gray-400">[' + time + ']</span> ';
+                var selWithIcon = log.selected_symbol
+                    ? '<span data-coin-name="' + escapeHtml(sel) + '">' + coinIconHtml(sel) + escapeHtml(sel) + '</span>'
+                    : sel;
                 if (opened) {
-                    html += '▶ <span class="font-bold">' + sel + '</span> @' + score + ' → POZİSYON AÇILDI';
+                    html += '▶ <span class="font-bold">' + selWithIcon + '</span> @' + score + ' → POZİSYON AÇILDI';
                 } else if (log.notes) {
                     html += '⊘ ' + escapeHtml((log.notes + '').substring(0, 55));
                 } else {
-                    html += '○ ' + sel + ' / skor:' + score;
+                    html += '○ ' + selWithIcon + ' / skor:' + score;
                 }
                 html += '</div>';
             });
@@ -3563,7 +3650,7 @@ $openSettingsModal = !empty($successMessage) || !empty($errorMessage) || !empty(
                 var statusExtraClasses = statusTitle !== '' ? ' cursor-help border-b border-dashed border-rose-400/50' : '';
 
                 return '<tr class="border-t border-black/5 hover:bg-black/[0.015] cursor-pointer transition-colors" onclick="openOrderDetail(' + parseInt(order.id, 10) + ')">'
-                    + '<td class="px-4 py-1.5 font-semibold text-gray-800">' + escapeHtml(order.pair || '') + '</td>'
+                    + '<td data-coin-name="' + escapeHtml(order.pair || '') + '" class="px-4 py-1.5 font-semibold text-gray-800">' + coinIconHtml(order.pair) + escapeHtml(order.pair || '') + '</td>'
                     + '<td class="px-2 py-1.5">'
                     +   '<span class="rounded px-1.5 py-0.5 ' + sideClasses + '">' + sideLabel + '</span>' + lossIcon
                     + '</td>'
@@ -3841,6 +3928,7 @@ $openSettingsModal = !empty($successMessage) || !empty($errorMessage) || !empty(
             fetchSystemStatus(false);
             fetchRecentOrders();
             fetchPendingOrders();
+            queueVisibleCoinIcons();
 
             // Ana Grafik (TradingView widget - bkz. loadChart yorumu). Kayan Bant artik KENDI
             // setInterval'ina ihtiyac duymuyor - TradingView'in Ticker Tape widget'i (yukarida embed

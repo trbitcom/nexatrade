@@ -2,6 +2,14 @@
 
 Bu dosya NexaTrade'in sürüm geçmişini tutar. Format [Keep a Changelog](https://keepachangelog.com/tr/1.0.0/) ilkelerini, sürümleme ise [Semantic Versioning](https://semver.org/lang/tr/) (Major.Minor.Patch) kurallarını izler.
 
+## [1.83.0] - 2026-07-31
+
+### Yeni Özellik
+- [CoinIconService, DashboardController, dashboard/index.php] AI Radar, AI Monolog, Aktif Avlar, Bekleyen Emirler, Son İşlemler ve Geçmiş panellerinde coin adının başında küçük logo eklendi - müşteri talebi. TradingView'ın kendi logo CDN'i hotlink'e kapalı olduğu için (denendi, 403) CoinGecko'nun `/coins/markets?symbols=` uç noktası kullanıldı - sonuçlar `app_settings` içinde KALICI önbelleklenir (logolar pratikte hiç değişmediği için), yeni `/api/dashboard/coin-icons` uç noktası ekrandaki TÜM eksik sembolleri TEK toplu istekte getirir. Gerçek 24 farklı sembolle (obscure "tokenized stock" coinleri dahil: SKHYB, ZAMA, SNDKB) test edildi, hepsi bulundu. Playwright ile görsel doğrulandı - ilk denemede ikon devasa boyutta çıktı, kök neden `npm run build:css` çalıştırılmamış olmasıydı (yeni Tailwind sınıfları derlenmiş CSS'e hiç girmemişti), düzeltildi.
+
+### Hata Düzeltme
+- [CoinIconService] İlk sürüm CoinGecko'ya açıklayıcı bir `User-Agent` göndermiyordu, 403 ile reddediliyordu - `SocialRadarService`'te 15 Temmuz'da bulunan AYNI kısıtlama, atlanmıştı. `CURLOPT_USERAGENT` eklendi.
+
 ## [1.82.1] - 2026-07-31
 
 ### Yeni Özellik

@@ -107,6 +107,7 @@ $router->get('/api/dashboard/radar',   [DashboardController::class, 'apiRadar'])
 $router->get('/api/dashboard/news',    [DashboardController::class, 'apiNews']);
 $router->get('/api/dashboard/hunts',   [DashboardController::class, 'apiHunts']);
 $router->get('/api/dashboard/pending-orders', [DashboardController::class, 'apiPendingOrders']);
+$router->get('/api/dashboard/coin-icons', [DashboardController::class, 'apiCoinIcons']);
 $router->get('/api/dashboard/live-chart', [DashboardController::class, 'apiLiveChart']);
 $router->get('/api/dashboard/logs',    [DashboardController::class, 'apiLogs']);
 $router->get('/api/dashboard/interventions', [DashboardController::class, 'apiInterventions']);
