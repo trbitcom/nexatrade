@@ -104,7 +104,14 @@ $openSettingsModal = !empty($successMessage) || !empty($errorMessage) || !empty(
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
     <!-- cdn.tailwindcss.com (calisma zamaninda JS ile CSS ureten, uretim icin onerilmeyen yontem)
          yerine derleme zamaninda uretilmis, kucuk ve statik bir CSS dosyasi - sayfa acilisini hizlandirir -->
-    <link rel="stylesheet" href="<?= htmlspecialchars(Url::to('/assets/css/tailwind.css'), ENT_QUOTES, 'UTF-8') ?>">
+    <!-- ?v=dosya-degisim-zamani onbellek kirma (cache-busting) - 31 Temmuz'da eklendi: derlenmiş
+         CSS'te (coin ikonu boyutu icin) yapilan bir degisiklik, versiyon parametresi olmadigi icin
+         musterinin mobil tarayicisinda ESKİ onbellekten okunmaya devam ediyordu (masaustunde/yerelde
+         dogru gorunuyordu, cunku o tarayicilarda onbellek zaten temizdi/farkli davraniyordu). Dosyanin
+         KENDI mtime'i kullanilir (app_version'a BAGIMLI degil) - CSS her degistiginde (npm run
+         build:css) URL otomatik degisir, ayni desen tum <link> etiketlerinde (bkz. auth/admin
+         gorunumleri) TEKRARLANIR -->
+    <link rel="stylesheet" href="<?= htmlspecialchars(Url::to('/assets/css/tailwind.css'), ENT_QUOTES, 'UTF-8') ?>?v=<?= @filemtime(__DIR__ . '/../../../assets/css/tailwind.css') ?: '1' ?>">
     <!-- Canli Savas Radari icin: hafif/performansli mum grafigi kutuphanesi (TradingView Lightweight
          Charts) - projede zaten Google Fonts CDN kullanildigi icin (yukarida) tek bir grafik
          kutuphanesi icin CDN kullanmak mevcut yaklasimla tutarli, ayrica derleme adimi gerektirmez -->

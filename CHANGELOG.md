@@ -2,6 +2,11 @@
 
 Bu dosya NexaTrade'in sürüm geçmişini tutar. Format [Keep a Changelog](https://keepachangelog.com/tr/1.0.0/) ilkelerini, sürümleme ise [Semantic Versioning](https://semver.org/lang/tr/) (Major.Minor.Patch) kurallarını izler.
 
+## [1.83.2] - 2026-07-31
+
+### Hata Düzeltme
+- [dashboard/index.php, auth/login.php, auth/register.php, admin/index.php, admin/backtest.php] Coin ikonları müşterinin mobil tarayıcısında dev boyutlu görünüyordu, masaüstünde/yerelde doğruydu - kök neden: derlenmiş `assets/css/tailwind.css` hiç önbellek kırma (cache-busting) parametresi taşımıyordu, mobil tarayıcı `w-3.5 h-3.5` kuralını içermeyen ESKİ bir kopyayı önbellekten sunmaya devam ediyordu. Tüm `<link rel="stylesheet">` etiketlerine dosyanın kendi `filemtime()`'ına dayalı `?v=` parametresi eklendi - CSS her `npm run build:css` ile değiştiğinde URL otomatik değişir, tarayıcı yeni dosyayı çekmek ZORUNDA kalır. Yerelde gerçek HTTP isteğiyle doğrulandı.
+
 ## [1.83.1] - 2026-07-31
 
 ### Hata Düzeltme

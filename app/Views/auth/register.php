@@ -18,7 +18,8 @@ use App\Core\Url;
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
     <!-- cdn.tailwindcss.com (calisma zamaninda JS ile CSS ureten, uretim icin onerilmeyen yontem)
          yerine derleme zamaninda uretilmis, kucuk ve statik bir CSS dosyasi - sayfa acilisini hizlandirir -->
-    <link rel="stylesheet" href="<?= htmlspecialchars(Url::to('/assets/css/tailwind.css'), ENT_QUOTES, 'UTF-8') ?>">
+    <!-- ?v=dosya-degisim-zamani onbellek kirma - bkz. dashboard/index.php'deki AYNI yorumun tam detayi -->
+    <link rel="stylesheet" href="<?= htmlspecialchars(Url::to('/assets/css/tailwind.css'), ENT_QUOTES, 'UTF-8') ?>?v=<?= @filemtime(__DIR__ . '/../../../assets/css/tailwind.css') ?: '1' ?>">
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Space Grotesk', 'Inter', sans-serif;
