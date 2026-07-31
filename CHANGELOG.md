@@ -2,11 +2,6 @@
 
 Bu dosya NexaTrade'in sürüm geçmişini tutar. Format [Keep a Changelog](https://keepachangelog.com/tr/1.0.0/) ilkelerini, sürümleme ise [Semantic Versioning](https://semver.org/lang/tr/) (Major.Minor.Patch) kurallarını izler.
 
-## [1.86.0] - 2026-07-31
-
-### Yeni Özellik
-- [dashboard/index.php] Masaüstünde "Aktif Avlar" kutusu sabit yükseklikli ("terminal" tasarımı, sayfa hiç kaymaz) olduğu için 3'ten fazla pozisyonda iç kaydırmaya dönüşüyordu - müşteri talebi. Yeni "TÜMÜNÜ GÖR" butonu (sadece 3'ten fazla pozisyonda görünür olur) tüm pozisyonları büyük bir modalda, kaydırmaya gerek kalmadan gösteriyor - mevcut kompakt masaüstü düzeni bozulmadı. Modal, `#huntsContainer`'ın güncel içeriğini yeniden oluşturmadan doğrudan klonlar. İzole testte (3→gizli, 5→görünür, modal aç/kapat/kart sayısı) doğrulandı.
-
 ## [1.85.1] - 2026-07-31
 
 ### İyileştirme
