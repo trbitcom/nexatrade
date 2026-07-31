@@ -348,6 +348,16 @@ $openSettingsModal = !empty($successMessage) || !empty($errorMessage) || !empty(
                 order: -1;
             }
 
+            /* Musteri talebi (31 Temmuz): "acik pozisyonlar scroll olmasin, tumunu kaydirmadan
+               gormek istiyorum" - genel 420px sinirini KALDIRIR, panel kac pozisyon varsa o kadar
+               buyur (icindeki #huntsContainer'in overflow-y-auto'su artik hicbir zaman tetiklenmez -
+               parent'ta artik sabit bir yukseklik yok). Sayfanin KENDISI (html,body yukarida zaten
+               overflow:auto) normal sekilde uzar, kullanici TEK bir dogal sayfa kaydirmasiyla
+               tum kartlari gorur - kucuk bir kutu icinde ikinci bir ic-kaydirma OLMAZ */
+            .terminal-grid > .area-hunts {
+                max-height: none;
+            }
+
             /* Grafik (mum + fiyat ekseni + zaman butonlari), diger kucuk liste panellerinden
                (Haberler, Son Islemler vb.) cok daha fazla gorsel alana ihtiyac duyar - hepsini
                ayni 420px'e sikistirmak grafigi "kucuk/okunaksiz" gosteriyordu.

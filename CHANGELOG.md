@@ -2,6 +2,11 @@
 
 Bu dosya NexaTrade'in sürüm geçmişini tutar. Format [Keep a Changelog](https://keepachangelog.com/tr/1.0.0/) ilkelerini, sürümleme ise [Semantic Versioning](https://semver.org/lang/tr/) (Major.Minor.Patch) kurallarını izler.
 
+## [1.85.1] - 2026-07-31
+
+### İyileştirme
+- [dashboard/index.php] Mobilde "Aktif Avlar" paneli artık kaydırma gerektirmeden tüm açık pozisyonları gösteriyor - müşteri talebi. Diğer panellerle paylaşılan genel 420px yükseklik sınırı bu panel için kaldırıldı, panel kaç pozisyon varsa o kadar büyüyor; sayfanın kendisi normal şekilde uzuyor, küçük bir kutu içinde ayrı bir iç-kaydırma olmuyor. Playwright ile (3 test pozisyonu, mobil viewport) doğrulandı - `hasInternalScroll: false`.
+
 ## [1.85.0] - 2026-07-31
 
 ### Hata Düzeltme (Kritik) - Kök Neden
