@@ -2,6 +2,14 @@
 
 Bu dosya NexaTrade'in sürüm geçmişini tutar. Format [Keep a Changelog](https://keepachangelog.com/tr/1.0.0/) ilkelerini, sürümleme ise [Semantic Versioning](https://semver.org/lang/tr/) (Major.Minor.Patch) kurallarını izler.
 
+## [1.82.0] - 2026-07-31
+
+### Yeni Özellik
+- [dashboard/index.php] Ana Grafik paneli TradingView'ın tam özellikli Advanced Chart widget'ına geri döndü - müşteri talebi: "her coin tıkladığımda sanki Binance'e girmişim gibi görmek istiyorum" (çizim araçları, onlarca indikatör, zaman dilimi sekmeleri). 22 Temmuz'da "bad auth token" hatası yüzünden kaldırılmıştı (paylaşımlı hosting IP'sinin TradingView tarafında bir kota/itibar sorununa takılması şüpheleniliyordu); artık kendi özel VPS IP'mizdeyiz, aynı sorun görülmedi. Eski `lightweight-charts` yolu (`initLightweightChart`) kod tabanında bozulmadan duruyor - tekrar sorun çıkarsa tek fonksiyon değişikliğiyle geri dönülür. "Canlı İzle" (pozisyon mini-grafik) ve Teknik Analiz Özeti gösterge motoru DEĞİŞMEDİ.
+
+### Hata Düzeltme
+- [dashboard/index.php] Mobilde Ana Grafik paneli tamamen görünmüyordu - kök neden: `.area-chart`'a sadece `max-height` verilmişti (bir ÜST SINIR, gerçek bir yükseklik değil), `#chartWidgetContainer`'ın (`flex-1 min-h-0`) büyüyeceği somut bir yükseklik olmadığı için grafik motoru 0 yükseklikli bir container'da sessizce hiçbir şey çizmiyordu. Playwright ile (masaüstü + mobil viewport, gerçek giriş) doğrulandı - düzeltme sonrası mobilde grafik container'ı ~620px yükseklikte, gerçek TradingView içeriğiyle render ediyor.
+
 ## [1.81.1] - 2026-07-31
 
 ### Hata Düzeltme (Kritik)

@@ -332,8 +332,16 @@ $openSettingsModal = !empty($successMessage) || !empty($errorMessage) || !empty(
 
             /* Grafik (mum + fiyat ekseni + zaman butonlari), diger kucuk liste panellerinden
                (Haberler, Son Islemler vb.) cok daha fazla gorsel alana ihtiyac duyar - hepsini
-               ayni 420px'e sikistirmak grafigi "kucuk/okunaksiz" gosteriyordu */
+               ayni 420px'e sikistirmak grafigi "kucuk/okunaksiz" gosteriyordu.
+               31 Temmuz'da tespit edildi: SADECE max-height verilmesi mobilde grafigin TAMAMEN
+               gorunmemesine sebep oluyordu - .area-chart icindeki #chartWidgetContainer'in
+               (flex-1 min-h-0) buyuyecegi somut bir yukseklik yoktu (max-height bir UST SINIR
+               tanimlar, gercek bir yukseklik VERMEZ), TradingView/lightweight-charts otomatik
+               boyutlandirma (autosize) 0 yukseklikli bir container'da SESSIZCE hicbir sey cizmiyordu -
+               ayni "container hidden iken createChart() cagrilmasin" ilkesinin (bkz. Canli Savas
+               Radari modali, 27 Temmuz) baska bir varyanti. Somut height eklenince duzeldi */
             .terminal-grid > .area-chart {
+                height: 80vh;
                 max-height: 80vh;
             }
 
@@ -638,12 +646,15 @@ $openSettingsModal = !empty($successMessage) || !empty($errorMessage) || !empty(
                     <span class="font-mono-tech text-[10px] text-gray-500 tracking-widest">MERHABA, <?= mb_strtoupper($userName) ?></span>
                 </div>
             </div>
-            <!-- Ana Grafik: TradingView embed widget'i yerine lightweight-charts (kendi barındırdığımız,
-                 Apache 2.0 lisanslı, tamamen bağımsız bir kütüphane - assets/js/lightweight-charts.min.js)
-                 + doğrudan Binance public REST (ilk yükleme) / WebSocket (canlı mum güncellemesi) -->
+            <!-- Ana Grafik: 31 Temmuz'da TradingView Advanced Chart widget'ına geri dönüldü (VPS'e
+                 geçtiğimiz için "bad auth token" sorununun artık geçerli olmaması bekleniyor - bkz.
+                 yukarıdaki <script> yorumu). #lwChart/#lwChartStatus KASITLI olarak hâlâ DOM'da
+                 duruyor (hidden) - loadChart()'taki eski initLightweightChart() yolu bozulmadan
+                 kalsın diye, TradingView tekrar sorun çıkarırsa tek fonksiyon değişikliğiyle geri dönülür -->
             <div id="chartWidgetContainer" class="flex-1 min-h-0 relative">
-                <div id="lwChart" class="absolute inset-0"></div>
-                <p id="lwChartStatus" class="absolute inset-0 flex items-center justify-center font-mono-tech text-xs text-gray-400">Yükleniyor...</p>
+                <div id="tvChartContainer" class="absolute inset-0"></div>
+                <div id="lwChart" class="absolute inset-0 hidden"></div>
+                <p id="lwChartStatus" class="absolute inset-0 hidden items-center justify-center font-mono-tech text-xs text-gray-400">Yükleniyor...</p>
             </div>
         </div>
 
@@ -1499,9 +1510,17 @@ $openSettingsModal = !empty($successMessage) || !empty($errorMessage) || !empty(
         </div>
     </div>
 
-    <!-- Ana grafik icin: kendi barindirdigimiz, TradingView'a hicbir agla/auth'la bagli olmayan
-         Apache 2.0 lisansli acik kaynak kutuphane (bkz. CHANGELOG, 22 Temmuz) -->
+    <!-- "Canlı İzle" (pozisyon mini-grafik modalı) ve Teknik Analiz gostergesi icin: kendi
+         barindirdigimiz, TradingView'a hicbir agla/auth'la bagli olmayan Apache 2.0 lisansli acik
+         kaynak kutuphane (bkz. CHANGELOG, 22 Temmuz) - BU IKISI DEGISMEDI -->
     <script src="<?= htmlspecialchars(Url::to('/assets/js/lightweight-charts.min.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
+    <!-- 31 Temmuz'da eklendi: SADECE Ana Grafik paneli icin TradingView'in tam ozellikli Advanced
+         Chart widget'i (cizim araclari, onlarca indikator) TEKRAR denendi - eski "bad auth token"
+         hatasi (22 Temmuz CHANGELOG) paylasimli hosting IP'sinin TradingView tarafinda bir kota/
+         itibar sorununa takilmasindan kaynaklaniyordu, artik kendi ozel VPS IP'mizdeyiz. Ucuz ve
+         GERI ALINABILIR bir deneme - calismazsa loadChart() icindeki eski lightweight-charts yolu
+         (initLightweightChart) hala kod tabaninda duruyor, tek fonksiyon degisikligiyle geri donulur -->
+    <script src="https://s3.tradingview.com/tv.js"></script>
 
     <script>
         // 16 Temmuz'da tespit edildi: PHP tarafinda tum sunucu-render edilmis (PHP kisa echo)
@@ -1587,11 +1606,13 @@ $openSettingsModal = !empty($successMessage) || !empty($errorMessage) || !empty(
             }).observe(container);
         }
 
-        // symbol 'BINANCE:BTCUSDT' formatinda gelir - eski TradingView cagri kalibiyla geriye donuk
-        // uyumlu birakildi, mevcut sembol secici/coin tiklama noktalari HIC degistirilmeden calisir
+        // symbol 'BINANCE:BTCUSDT' formatinda gelir - TradingView'in KENDI bekledigi format zaten
+        // bu, hicbir donusum gerekmez. Ana grafigi artik TradingView Advanced Chart widget'i cizer
+        // (bkz. loadTradingViewChart) - Teknik Analiz Ozeti gostergesi ise HALA kendi Binance kline
+        // verimizle hesaplaniyor (TradingView'in iframe'i icindeki veriye erisimimiz yok, bu yuzden
+        // asagidaki fetch/renderTechnicalGauge cagrisi KALDI, sadece grafik cizimi degisti)
         function loadChart(symbol) {
             var pair = symbol.replace('BINANCE:', '').toUpperCase();
-            var statusEl = document.getElementById('lwChartStatus');
 
             var select = document.getElementById('chartSymbolSelect');
             if (select) {
@@ -1602,9 +1623,7 @@ $openSettingsModal = !empty($successMessage) || !empty($errorMessage) || !empty(
             var labelEl = document.getElementById('technicalWidgetSymbol');
             if (labelEl) { labelEl.textContent = pair; }
 
-            initLightweightChart();
-
-            if (statusEl) { statusEl.textContent = 'Yükleniyor...'; statusEl.classList.remove('hidden'); }
+            loadTradingViewChart(symbol);
 
             fetch('https://api.binance.com/api/v3/klines?symbol=' + pair + '&interval=' + LW_INTERVAL + '&limit=300')
                 .then(function (r) {
@@ -1622,16 +1641,34 @@ $openSettingsModal = !empty($successMessage) || !empty($errorMessage) || !empty(
                         };
                     });
 
-                    if (lwCandleSeries) { lwCandleSeries.setData(candles); }
-                    if (lwChart) { lwChart.timeScale().fitContent(); }
-                    if (statusEl) { statusEl.classList.add('hidden'); }
-
                     renderTechnicalGauge(candles);
-                    connectKlineSocket(pair);
                 })
-                .catch(function () {
-                    if (statusEl) { statusEl.textContent = 'Grafik verisi alınamadı.'; statusEl.classList.remove('hidden'); }
-                });
+                .catch(function () { /* Teknik Analiz Ozeti sessizce eski degerinde kalir - Ana Grafik'i etkilemez */ });
+        }
+
+        // TradingView'in UCRETSIZ embed widget'i (tv.js) - ucretli "Charting Library"nin aksine
+        // setSymbol()/onChartReady() gibi bir calisma-zamani JS API'si SUNMAZ, sembol degistirmenin
+        // tek yolu container'i temizleyip widget'i SIFIRDAN yeniden olusturmak (ilk denemede
+        // "tvWidget.onChartReady is not a function" hatasiyla tespit edildi, Playwright ile dogrulandi)
+        function loadTradingViewChart(symbol) {
+            if (typeof TradingView === 'undefined') { return; }
+
+            var container = document.getElementById('tvChartContainer');
+            if (container) { container.innerHTML = ''; }
+
+            new TradingView.widget({
+                autosize: true,
+                symbol: symbol,
+                interval: '15',
+                timezone: 'Etc/UTC',
+                theme: 'light',
+                style: '1',
+                locale: 'tr',
+                toolbar_bg: '#ffffff',
+                enable_publishing: false,
+                allow_symbol_change: false,
+                container_id: 'tvChartContainer'
+            });
         }
 
         // Canli mum guncellemesi: Binance'in herkese acik kline WebSocket akisi - anahtar/oturum GEREKMEZ
