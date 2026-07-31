@@ -531,12 +531,31 @@ $openSettingsModal = !empty($successMessage) || !empty($errorMessage) || !empty(
         </div>
     </nav>
 
-    <!-- Kayan Fiyat Bandı: 22 Temmuz'da TradingView'a bağımlılık tamamen kaldırıldı (bkz. CHANGELOG -
-         paylaşımlı hosting IP'sinde TradingView'ın kendi auth/protokol katmanı "bad auth token" ile
-         reddediyordu, kod/tarayıcı tarafında bulunabilecek bir neden değildi). Artık doğrudan Binance'in
-         herkese açık REST/WebSocket API'siyle beslenen, tamamen kendi kontrolümüzde bir şerit -->
+    <!-- Kayan Fiyat Bandı: 31 Temmuz'da TradingView'in resmi Ticker Tape widget'ına geri dönüldü -
+         musteri talebi: "ikonlar kayan seritte tradingview olsun" (coin logolari). Ana Grafik'teki AYNI
+         gerekce (bkz. o panelin yorumu, 22 Temmuz "bad auth token" artik gecerli degil - ozel VPS IP'si).
+         Eski Binance-REST-tabanli ozel serit (initTickerTape/refreshTickerTape) kod tabaninda BOZULMADAN
+         duruyor (kullanilmiyor) - tekrar sorun cikarsa hizli geri donus icin -->
     <div class="flex-none h-[46px] overflow-hidden border-b border-violet-500/10 bg-white/70 relative">
-        <div id="customTickerTrack" class="flex items-center h-full gap-10 px-4 whitespace-nowrap font-mono-tech text-xs animate-ticker-scroll"></div>
+        <div class="tradingview-widget-container" style="height:100%;width:100%">
+            <div class="tradingview-widget-container__widget"></div>
+            <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-ticker-tape.js" async>
+            {
+                "symbols": [
+                    { "proName": "BINANCE:BTCUSDT", "title": "BTC/USDT" },
+                    { "proName": "BINANCE:ETHUSDT", "title": "ETH/USDT" },
+                    { "proName": "BINANCE:BNBUSDT", "title": "BNB/USDT" },
+                    { "proName": "BINANCE:SOLUSDT", "title": "SOL/USDT" },
+                    { "proName": "BINANCE:XRPUSDT", "title": "XRP/USDT" }
+                ],
+                "showSymbolLogo": true,
+                "isTransparent": true,
+                "displayMode": "adaptive",
+                "colorTheme": "light",
+                "locale": "tr"
+            }
+            </script>
+        </div>
     </div>
 
     <!-- FİNANSAL ÖZET -->
@@ -3823,8 +3842,9 @@ $openSettingsModal = !empty($successMessage) || !empty($errorMessage) || !empty(
             fetchRecentOrders();
             fetchPendingOrders();
 
-            // Ozel Grafik/Teknik Analiz/Kayan Bant motoru (Binance public REST/WS - bkz. loadChart yorumu)
-            initTickerTape();
+            // Ana Grafik (TradingView widget - bkz. loadChart yorumu). Kayan Bant artik KENDI
+            // setInterval'ina ihtiyac duymuyor - TradingView'in Ticker Tape widget'i (yukarida embed
+            // edildi) kendi ici WebSocket'iyle otomatik guncelleniyor, initTickerTape() cagrisi kaldirildi
             loadChart('BINANCE:BTCUSDT');
 
             // 29 Temmuz'da hizlandirildi (VPS gecisi sonrasi, "daha canli hissettirsin" talebi):
@@ -3846,7 +3866,6 @@ $openSettingsModal = !empty($successMessage) || !empty($errorMessage) || !empty(
             // gibi sayfa acikken olusan yeni bir siparis F5 atilmadan hic gorunmuyordu
             setInterval(fetchRecentOrders,      30000);
             setInterval(function () { fetchSystemStatus(false); }, 60000);
-            setInterval(refreshTickerTape,      5000);
             // 22 Temmuz'da eklendi: fetchRadar/fetchNews eskiden SADECE sayfa ilk acildiginda ve
             // sekmeye geri donulunce (visibilitychange/focus) calisiyordu, digerleri gibi periyodik
             // degildi - "dashboard tam canli degil" geri bildirimi uzerine eklendi. Backend zaten

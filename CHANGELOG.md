@@ -2,6 +2,11 @@
 
 Bu dosya NexaTrade'in sürüm geçmişini tutar. Format [Keep a Changelog](https://keepachangelog.com/tr/1.0.0/) ilkelerini, sürümleme ise [Semantic Versioning](https://semver.org/lang/tr/) (Major.Minor.Patch) kurallarını izler.
 
+## [1.82.1] - 2026-07-31
+
+### Yeni Özellik
+- [dashboard/index.php] Kayan Fiyat Bandı TradingView'ın resmi Ticker Tape widget'ına geri döndü - müşteri talebi: coin ikonları görünsün. `showSymbolLogo: true` ile BTC/ETH/BNB/SOL/XRP logoları artık şeritte görünüyor. Eski Binance-REST tabanlı özel şerit (`initTickerTape`/`refreshTickerTape`) kod tabanında bozulmadan duruyor, kullanılmıyor - hızlı geri dönüş için. Playwright ile (gerçek giriş) doğrulandı.
+
 ## [1.82.0] - 2026-07-31
 
 ### Yeni Özellik
