@@ -3416,10 +3416,6 @@ $openSettingsModal = !empty($successMessage) || !empty($errorMessage) || !empty(
             updateHuntsCountBadge();
         }
 
-        // Masaustunde "Aktif Avlar" kutusu 3'ten fazla pozisyonda ic kaydirmaya donusuyor - bu
-        // esigin ustunde "TÜMÜNÜ GÖR" butonu gorunur olur (bkz. openAllHuntsModal)
-        var VIEW_ALL_HUNTS_THRESHOLD = 3;
-
         function updateHuntsCountBadge() {
             var badge = document.getElementById('huntsPositionCount');
             var container = document.getElementById('huntsContainer');
@@ -3430,8 +3426,17 @@ $openSettingsModal = !empty($successMessage) || !empty($errorMessage) || !empty(
             var totalCount = spotCount + futuresCount;
             badge.textContent = totalCount + ' POZİSYON';
 
+            // 31 Temmuz'da SABIT bir sayi esigi (>3) yerine GERCEK tasma (overflow) olcumune
+            // gecildi - musteri geri bildirimi: 3 pozisyonda bile kutu kayiyordu, sabit sayi ekran/
+            // kart yuksekligi degiskenligini hesaba katmiyordu. scrollHeight > clientHeight, kartlarin
+            // GERCEKTEN kutuya sigip sigmadigini dogrudan olcer - ekran boyutundan/kart icerik
+            // uzunlugundan (ör. Trade Post-Mortem tooltip'i olan/olmayan kart farkli yukseklikte
+            // olabilir) BAGIMSIZ dogru sonuc verir
             var viewAllBtn = document.getElementById('viewAllHuntsBtn');
-            if (viewAllBtn) { viewAllBtn.classList.toggle('hidden', totalCount <= VIEW_ALL_HUNTS_THRESHOLD); }
+            if (viewAllBtn) {
+                var needsScroll = container.scrollHeight > container.clientHeight + 1; // 1px yuvarlama payi
+                viewAllBtn.classList.toggle('hidden', !needsScroll);
+            }
 
             if (totalCount === 0 && !container.querySelector('[data-hunts-empty]')) {
                 var p = document.createElement('p');
