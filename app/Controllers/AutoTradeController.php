@@ -3857,19 +3857,128 @@ final class AutoTradeController
         }
 
         if (!$ocoResult['success']) {
-            // Eski OCO zaten iptal edildi, yenisi girilemedi - pozisyon SIMDI korumasiz
-            ActiveTrade::clearOcoReference($tradeId);
+            // 31 Temmuz'da eklendi (UNIUSDT #281 canlı olayı): protectPositionWithOco()'daki AYNI
+            // Acil Durum Protokolü (Triage) burada da uygulanır - eskiden bu dal dogrudan "korumasiz
+            // kaldi" diyip vazgeciyordu, ama giris anindaki OCO reddiyle AYNI "relationship of the
+            // prices" hatasi burada da (Kâr Kilitleme sirasinda fiyat bandin disina cikinca) olusabilir
+            // ve HICBIR guvenlik agi yoktu - pozisyon saatlerce korumasiz kalabiliyordu (UNIUSDT
+            // #281'de ~9 saat). Eski OCO zaten iptal edildi, pozisyon bu noktada zaten korumasiz
+            $emergencyClosed = false;
+
+            if (str_contains($ocoResult['error'], 'relationship of the prices')) {
+                try {
+                    $currentPrice = (new BinanceService('', ''))->getPrice($pair);
+                } catch (Throwable $e) {
+                    $currentPrice = 0.0;
+                }
+
+                $waterfallThreshold = $newStopTargetPrice * (1 - self::EMERGENCY_WATERFALL_MARGIN_PERCENT / 100);
+                $priceAlreadyPastTp = $currentPrice > 0 && $currentPrice >= $takeProfitPrice;
+                $priceInWaterfall = $currentPrice > 0 && $currentPrice <= $waterfallThreshold;
+
+                if ($priceAlreadyPastTp || $priceInWaterfall) {
+                    try {
+                        $marketSellResult = $binance->placeOrder($pair, 'SELL', 'MARKET', $quantity);
+
+                        if ($marketSellResult['success']) {
+                            $raw = $marketSellResult['raw'] ?? [];
+                            $executedQty = (float) ($raw['executedQty'] ?? $quantity);
+                            $cumulativeQuote = (float) ($raw['cummulativeQuoteQty'] ?? 0);
+                            $exitPrice = $executedQty > 0 ? $cumulativeQuote / $executedQty : $currentPrice;
+                            $exitTotal = $cumulativeQuote > 0 ? $cumulativeQuote : $exitPrice * $executedQty;
+
+                            $this->finalizeSpotClose(
+                                $binance,
+                                $trade,
+                                $exitPrice,
+                                $executedQty,
+                                $exitTotal,
+                                $marketSellResult['order_id'] !== null ? (int) $marketSellResult['order_id'] : null,
+                                'market_emergency'
+                            );
+
+                            $this->logAutomationError(sprintf(
+                                'ACİL DURUM PROTOKOLÜ (Kâr Kilitleme): Kullanıcı #%d %s - OCO fiyat bandı reddi sonrası %s tespit edildi - piyasadan anında satıldı, çıkış: %s.',
+                                $userId,
+                                $pair,
+                                $priceAlreadyPastTp ? 'fiyat Kâr Al seviyesini geçmiş' : sprintf('şelale düşüşü (hedefin %%%.1f altı)', self::EMERGENCY_WATERFALL_MARGIN_PERCENT),
+                                $this->formatPrice($exitPrice)
+                            ));
+
+                            $this->notifyAdminAndCustomer(
+                                $userId,
+                                sprintf(
+                                    "🚨 Acil Durum Protokolü Devrede (Kâr Kilitleme)\nCoin: %s\nOCO reddedildi (fiyat bandın dışına çıktı), pozisyon anında piyasadan kapatıldı.\nÇıkış: %s",
+                                    $pair,
+                                    $this->formatPrice($exitPrice)
+                                )
+                            );
+
+                            $emergencyClosed = true;
+                        } else {
+                            $this->logAutomationError("ACİL DURUM PROTOKOLÜ (Kâr Kilitleme): Kullanıcı #{$userId} {$pair} - piyasa satışı da başarısız: " . ($marketSellResult['error'] ?? 'bilinmeyen hata'));
+                        }
+                    } catch (Throwable $e) {
+                        $this->logAutomationError("ACİL DURUM PROTOKOLÜ (Kâr Kilitleme): Kullanıcı #{$userId} {$pair} - piyasa satışı sırasında istisna: " . $e->getMessage());
+                    }
+                }
+            }
+
+            if ($emergencyClosed) {
+                return null;
+            }
+
+            // Acil Durum Protokolü devreye girmediyse (fiyat hala TP/SL aralığında, sadece kücük bir
+            // iğne) - GÜNCEL fiyattan hesaplanmış TEK BAŞINA bir Zarar Kes emri denenir. OCO'dan
+            // farklı olarak Binance'in "relationship" kısıtı yok - tek koşul stopPrice güncel fiyatın
+            // altında olması. WICK_SHIELD_MIN_PERCENT (aynı sabit, protectPositionWithOco'daki gibi)
+            // guvenli bir pay birakir
+            $fallbackProtected = false;
+
+            try {
+                $currentPrice = (new BinanceService('', ''))->getPrice($pair);
+
+                if ($currentPrice > 0) {
+                    $freshStopPrice = $this->floorToStep($currentPrice * (1 - self::WICK_SHIELD_MIN_PERCENT / 100), $tickSize);
+
+                    if ($freshStopPrice < $currentPrice) {
+                        $fallbackResult = $binance->placeStopLossOrder($pair, 'SELL', $quantity, $freshStopPrice);
+
+                        if ($fallbackResult['success']) {
+                            ActiveTrade::applyTakeProfitRemoval(
+                                $tradeId,
+                                $freshStopPrice,
+                                $fallbackResult['order_id'] !== null ? (int) $fallbackResult['order_id'] : null,
+                                $highestPriceSeen
+                            );
+                            $fallbackProtected = true;
+                        }
+                    }
+                }
+            } catch (Throwable $e) {
+                // Yedek deneme de basarisiz - asagida zaten "korumasiz" uyarisi gidecek
+            }
+
+            if (!$fallbackProtected) {
+                ActiveTrade::clearOcoReference($tradeId);
+            }
 
             $this->logAutomationError(sprintf(
-                'KRİTİK: Kullanıcı #%d %s - Kâr Kilitleme için yeni OCO girilemedi, pozisyon KORUMASIZ kaldı: %s',
+                'KRİTİK: Kullanıcı #%d %s - Kâr Kilitleme için yeni OCO girilemedi%s: %s',
                 $userId,
                 $pair,
+                $fallbackProtected ? ', yedek Zarar Kes devrede' : ', pozisyon KORUMASIZ kaldı',
                 $ocoResult['error']
             ));
 
             $this->notifyAdminAndCustomer(
                 $userId,
-                "🚨 ACİL: Kâr Kilitleme Uygulanamadı, Pozisyon Korumasız!\nCoin: {$pair}\n\nLütfen borsa hesabını manuel olarak kontrol edin."
+                $fallbackProtected
+                    ? ("⚠️ Kâr Kilitleme OCO Başarısız, Yedek Zarar Kes Devrede\n" .
+                        "Coin: {$pair}\n" .
+                        "Hata: {$ocoResult['error']}\n\n" .
+                        'Kâr Al otomasyonu bu pozisyon için YOK, ama güncel fiyattan tek başına bir Zarar Kes emri girildi. Yine de borsa hesabınızı kontrol etmeniz önerilir.')
+                    : ("🚨 ACİL: Kâr Kilitleme Uygulanamadı, Pozisyon Korumasız!\nCoin: {$pair}\n\nLütfen borsa hesabını manuel olarak kontrol edin.")
             );
 
             return null;

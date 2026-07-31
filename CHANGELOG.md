@@ -2,6 +2,11 @@
 
 Bu dosya NexaTrade'in sürüm geçmişini tutar. Format [Keep a Changelog](https://keepachangelog.com/tr/1.0.0/) ilkelerini, sürümleme ise [Semantic Versioning](https://semver.org/lang/tr/) (Major.Minor.Patch) kurallarını izler.
 
+## [1.87.0] - 2026-07-31
+
+### Hata Düzeltme (Kritik)
+- [AutoTradeController] "Kâr Kilitleme" (İzleyen Stop sıkılaştırma) sırasında yeni OCO Binance'in "relationship of the prices" hatasıyla reddedilirse pozisyon SAATLERCE korumasız kalabiliyordu - canlı olayda tespit edildi (UNIUSDT #281, Kullanıcı #1, ~9 saat korumasız kaldı, fiyat zaten kendi Zarar Kes seviyesinin altına inmişti). Giriş anındaki OCO reddi için zaten var olan Acil Durum Protokolü (v1.74.0: fiyat Kâr Al'ı geçmişse anında piyasa satışı, şelale düşüşündeyse anında piyasa satışı, aksi halde tek başına Zarar Kes yedek emri) artık `replaceOcoWithNewStop()` (Kâr Kilitleme'nin ortak çekirdeği) içinde de uygulanıyor - iki çağıran nokta (Kademeli İzleyen Stop + Fitil Koruması sıkılaştırma) otomatik olarak kapsanıyor.
+
 ## [1.86.2] - 2026-07-31
 
 ### Geri Alma
