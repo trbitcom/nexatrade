@@ -2,6 +2,11 @@
 
 Bu dosya NexaTrade'in sürüm geçmişini tutar. Format [Keep a Changelog](https://keepachangelog.com/tr/1.0.0/) ilkelerini, sürümleme ise [Semantic Versioning](https://semver.org/lang/tr/) (Major.Minor.Patch) kurallarını izler.
 
+## [1.86.2] - 2026-07-31
+
+### Geri Alma
+- [dashboard/index.php] "Tümünü Gör" modalı (v1.86.0/1.86.1, masaüstünde 3+ açık pozisyonu kaydırmadan gösterme denemesi) müşteri talebiyle tamamen geri alındı - istenen şekilde çözmedi. Panel v1.85.1 öncesi haline döndü.
+
 ## [1.85.1] - 2026-07-31
 
 ### İyileştirme
