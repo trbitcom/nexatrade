@@ -2,6 +2,11 @@
 
 Bu dosya NexaTrade'in sürüm geçmişini tutar. Format [Keep a Changelog](https://keepachangelog.com/tr/1.0.0/) ilkelerini, sürümleme ise [Semantic Versioning](https://semver.org/lang/tr/) (Major.Minor.Patch) kurallarını izler.
 
+## [1.84.0] - 2026-07-31
+
+### Yeni Özellik
+- [dashboard/index.php] "Teknik Analiz Özeti" paneli TradingView'ın resmi Technical Analysis widget'ına geri döndü (Ana Grafik/Kayan Bant'taki aynı gerekçe - özel VPS IP'si). ÖNEMLİ: bu panel bilerek SADECE görsel/bilgi amaçlıdır, gerçek alım kararını veren Deterministik Motor/AI Avcı'ya kasıtlı olarak bağlanmadı - panel o an grafikte hangi coin açıksa onu gösterir (botun kendi tarama döngüsüyle senkron değil), ikisini birleştirmek test edilmemiş bir sinyali canlıya sokmak olurdu. Eski kendi-hesapladığımız RSI/SMA/MACD gauge'u kod tabanında bozulmadan duruyor (hidden), hızlı geri dönüş için. Sembol değişimi (JSON-config embed'in çalışma-zamanı API'si olmadığı için container'ı temizleyip `<script>`'i `createElement`+`appendChild` ile sıfırdan ekleme deseni) Playwright ile doğrulandı.
+
 ## [1.83.2] - 2026-07-31
 
 ### Hata Düzeltme

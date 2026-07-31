@@ -699,14 +699,23 @@ $openSettingsModal = !empty($successMessage) || !empty($errorMessage) || !empty(
             </div>
         </div>
 
-        <!-- Teknik Analiz Ozeti: TradingView widget'i yerine, ayni Binance mum verisinden istemci
-             tarafinda hesaplanan RSI(14)/SMA(20,50)/MACD(12,26,9) oy birligiyle AL-SAT-NOTR gostergesi -->
+        <!-- Teknik Analiz Ozeti: 31 Temmuz'da TradingView'in resmi Technical Analysis widget'ina geri
+             donuldu (Ana Grafik/Kayan Bant'taki AYNI gerekce - ozel VPS IP'si). ONEMLI: bu panel SADECE
+             GORSEL/bilgi amaclidir, gercek alim kararini veren Deterministik Motor/AI Avci'ya (bkz.
+             MarketScanner::calculateTechnicalScore) KASITLI olarak hic baglanmaz - bu panel o an
+             grafikte hangi coin aciksa onu gosterir (kullanicinin gezindigi herhangi bir coin
+             olabilir), botun kendi tarama dongusuyle senkron degildir; ikisini birlestirmek "hangi
+             coin'e bakiliyorsa o mu alinsin" gibi anlamsiz VE test edilmemis bir sinyali canliya
+             sokmak olurdu. Eski kendi-hesapladigimiz RSI/SMA/MACD gauge'u (renderTechnicalGauge) kod
+             tabaninda BOZULMADAN duruyor (hidden container'a yazmaya devam ediyor) - TradingView
+             tekrar sorun cikarirsa hizli geri donus icin -->
         <div class="area-technical relative glass-panel rounded-2xl flex flex-col min-h-0 overflow-hidden">
             <div class="flex-none flex items-center justify-between px-4 py-2 border-b border-black/5">
                 <span class="font-mono-tech text-[10px] tracking-widest text-gray-500">TEKNİK ANALİZ ÖZETİ</span>
                 <span id="technicalWidgetSymbol" class="font-mono-tech text-[10px] text-violet-600">BTCUSDT</span>
             </div>
-            <div id="technicalWidgetContainer" class="flex-1 min-h-0 flex flex-col items-center justify-center px-3 py-2 gap-1.5">
+            <div id="tvTechnicalContainer" class="flex-1 min-h-0"></div>
+            <div id="technicalWidgetContainer" class="hidden flex-1 min-h-0 flex flex-col items-center justify-center px-3 py-2 gap-1.5">
                 <p class="font-mono-tech text-xs text-gray-400">Hesaplanıyor...</p>
             </div>
         </div>
@@ -1665,6 +1674,7 @@ $openSettingsModal = !empty($successMessage) || !empty($errorMessage) || !empty(
             if (labelEl) { labelEl.textContent = pair; }
 
             loadTradingViewChart(symbol);
+            loadTradingViewTechnicalWidget(symbol);
 
             fetch('https://api.binance.com/api/v3/klines?symbol=' + pair + '&interval=' + LW_INTERVAL + '&limit=300')
                 .then(function (r) {
@@ -1710,6 +1720,46 @@ $openSettingsModal = !empty($successMessage) || !empty($errorMessage) || !empty(
                 allow_symbol_change: false,
                 container_id: 'tvChartContainer'
             });
+        }
+
+        // Teknik Analiz Ozeti - TradingView'in UCRETSIZ JSON-config embed'i (Ticker Tape ile AYNI
+        // aile, Advanced Chart'taki tv.js JS API'sinden FARKLI) - calisma-zamani API'si olmadigi icin
+        // sembol degisince container TAMAMEN temizlenip <script> etiketi SIFIRDAN eklenir. innerHTML
+        // ile script eklemek TARAYICIDA CALISTIRILMAZ (bilinen bir DOM kisiti) - bu yuzden
+        // document.createElement('script') + appendChild KULLANILIR, bu YONTEM gercekten calistirir
+        function loadTradingViewTechnicalWidget(symbol) {
+            var container = document.getElementById('tvTechnicalContainer');
+            if (!container) { return; }
+
+            container.innerHTML = '';
+
+            var widgetDiv = document.createElement('div');
+            widgetDiv.className = 'tradingview-widget-container';
+            widgetDiv.style.height = '100%';
+            widgetDiv.style.width = '100%';
+
+            var innerDiv = document.createElement('div');
+            innerDiv.className = 'tradingview-widget-container__widget';
+            widgetDiv.appendChild(innerDiv);
+
+            var script = document.createElement('script');
+            script.type = 'text/javascript';
+            script.async = true;
+            script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-technical-analysis.js';
+            script.text = JSON.stringify({
+                interval: '15m',
+                width: '100%',
+                isTransparent: true,
+                height: '100%',
+                symbol: symbol,
+                showIntervalTabs: true,
+                displayMode: 'single',
+                locale: 'tr',
+                colorTheme: 'light'
+            });
+            widgetDiv.appendChild(script);
+
+            container.appendChild(widgetDiv);
         }
 
         // Canli mum guncellemesi: Binance'in herkese acik kline WebSocket akisi - anahtar/oturum GEREKMEZ
