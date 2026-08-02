@@ -2,6 +2,11 @@
 
 Bu dosya NexaTrade'in sürüm geçmişini tutar. Format [Keep a Changelog](https://keepachangelog.com/tr/1.0.0/) ilkelerini, sürümleme ise [Semantic Versioning](https://semver.org/lang/tr/) (Major.Minor.Patch) kurallarını izler.
 
+## [1.89.1] - 2026-08-02
+
+### Performans
+- [DashboardController, BinanceService] `/api/dashboard/portfolio` uç noktası ölçülen gerçek yanıt süresiyle 3.2 saniyeye çıkıyordu (mobil ve web'de yavaşlık şikayeti üzerine doğrulandı) - kök neden: açık pozisyon başına ayrı, sıralı `getPrice()` çağrısı (paylaşılan HTTP istemci yok, her çağrı kendi TCP/TLS bağlantısını açıyor). Yeni `BinanceService::getAllPrices()` TÜM sembollerin fiyatını TEK istekte döner - `apiPortfolio()` ve `fetchActiveTrades()` (Aktif Avlar) artık bunu kullanıyor, N çağrı 1'e indi.
+
 ## [1.89.0] - 2026-08-02
 
 ### Ayar Değişikliği

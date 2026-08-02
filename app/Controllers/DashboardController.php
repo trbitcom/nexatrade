@@ -1326,14 +1326,19 @@ final class DashboardController
                 $unrealizedPnl  = 0.0;
 
                 try {
+                    // Tek toplu cagri (bkz. BinanceService::getAllPrices() yorumu) - eskiden pozisyon
+                    // basina ayri getPrice() cagrisi yapiliyordu, bu ucnoktayi 3+ saniyeye cikariyordu
                     $binance = new BinanceService($existingKey['api_key'], $existingKey['secret_key']);
+                    $allPrices = $binance->getAllPrices();
+
                     foreach ($trades as $trade) {
-                        try {
-                            $price          = $binance->getPrice((string) $trade['pair']);
+                        $price = $allPrices[(string) $trade['pair']] ?? null;
+
+                        if ($price !== null && $price > 0) {
                             $qty            = (float) $trade['quantity'];
                             $positionsValue += $price * $qty;
                             $unrealizedPnl  += ($price - (float) $trade['entry_price']) * $qty;
-                        } catch (Throwable) {}
+                        }
                     }
                 } catch (Throwable) {}
             } elseif ($trades === []) {
@@ -1907,6 +1912,9 @@ final class DashboardController
 
         try {
             $binance = new BinanceService($existingKey['api_key'], $existingKey['secret_key']);
+            // Tek toplu cagri (bkz. BinanceService::getAllPrices() yorumu) - eskiden pozisyon basina
+            // ayri getPrice() cagrisi yapiliyordu, acik pozisyon sayisi arttikca bu ucnoktayi yavaslatiyordu
+            $allPrices = $binance->getAllPrices();
         } catch (Throwable $e) {
             return $trades;
         }
@@ -1915,9 +1923,8 @@ final class DashboardController
             $entryPrice = (float) $trade['entry_price'];
             $targetPrice = (float) $trade['take_profit_price'];
 
-            try {
-                $currentPrice = $binance->getPrice((string) $trade['pair']);
-            } catch (Throwable $e) {
+            $currentPrice = $allPrices[(string) $trade['pair']] ?? null;
+            if ($currentPrice !== null && $currentPrice <= 0) {
                 $currentPrice = null;
             }
 

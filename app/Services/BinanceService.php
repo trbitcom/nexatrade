@@ -70,6 +70,30 @@ final class BinanceService
         return (float) ($response['price'] ?? 0);
     }
 
+    // 2 Agustos'ta eklendi: apiPortfolio()/fetchActiveTrades() acik pozisyon sayisi kadar (N) SIRALI
+    // getPrice() cagrisi yapiyordu - her biri ayri TCP/TLS baglantisi (paylasilan HTTP istemci
+    // YOK, bkz. "Servis Deseni" CLAUDE.md), portfolio ucnoktasi bu yuzden 3+ saniyeye cikiyordu
+    // (musteri hem mobil hem webde yavaslik bildirdi, gercek olcumle dogrulandi). symbol parametresi
+    // OLMADAN /api/v3/ticker/price TUM sembollerin fiyatini TEK istekte doner - N cagriyi 1'e indirir.
+    // @return array<string, float> sembol => fiyat
+    public function getAllPrices(): array
+    {
+        $url = self::BASE_URL . '/api/v3/ticker/price';
+
+        $response = $this->request('GET', $url);
+        $prices = [];
+
+        foreach ($response as $ticker) {
+            $symbol = (string) ($ticker['symbol'] ?? '');
+
+            if ($symbol !== '') {
+                $prices[$symbol] = (float) ($ticker['price'] ?? 0);
+            }
+        }
+
+        return $prices;
+    }
+
     // Canli Savas Radari (Trade Diagnostics grafigi) icin: son $limit adet mumu doner. Genel
     // (public) bir endpoint oldugu icin imza gerektirmez - MarketScanner/BacktestService'teki
     // KENDI private fetchKlines()'larindan KASITLI olarak AYRI/BAGIMSIZ birakildi (o iki metod
