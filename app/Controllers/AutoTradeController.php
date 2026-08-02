@@ -77,7 +77,13 @@ final class AutoTradeController
     // yakalanabiliyordu ("tepeden alma"). Bu, TechnicalScoreEngine'in ZATEN hesapladigi 15dk
     // RSI'i (eskiden SADECE skoru etkileyen yumusak bir katmandi) sert bir KAPI'ya cevirir -
     // AI skoru ne kadar yuksek olursa olsun, 15dk RSI bu esigin USTUNDEYSE alim KESINLIKLE yapilmaz
-    private const PULLBACK_RSI_OVERBOUGHT_THRESHOLD = 70.0;
+    //
+    // 2 Agustos'ta 70'ten 65'e sikilastirildi: 311 kapanan islemin giris anindaki entry_rsi_15m
+    // degerine gore gercek kazanma orani kirilimi cikarildi - 45-65 araliginda ~%67 kazanma
+    // (n=122), 65-75 araliginda ise %50'ye dusuyordu (n=16, GIGGLEUSDT #326/#327 canli olayinin
+    // tetikledigi bir inceleme sirasinda bulundu). Esik zaten var olan bu korumayi SIKILASTIRIYOR,
+    // yeni bir kural DEGIL - n=16 kucuk bir orneklem oldugu icin sonraki islemlerle izlenmeli
+    private const PULLBACK_RSI_OVERBOUGHT_THRESHOLD = 65.0;
 
     // --- Deterministik Motor (Gölge Mod) ---
     // 26 Temmuz'da eklendi: GPT/AI Karar Skoru'nun kendi icinde iyi kalibre olmadigi (80+ bandinin

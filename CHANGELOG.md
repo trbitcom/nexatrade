@@ -2,6 +2,11 @@
 
 Bu dosya NexaTrade'in sürüm geçmişini tutar. Format [Keep a Changelog](https://keepachangelog.com/tr/1.0.0/) ilkelerini, sürümleme ise [Semantic Versioning](https://semver.org/lang/tr/) (Major.Minor.Patch) kurallarını izler.
 
+## [1.89.0] - 2026-08-02
+
+### Ayar Değişikliği
+- [AutoTradeController] Anti-FOMO 15dk RSI eşiği (`PULLBACK_RSI_OVERBOUGHT_THRESHOLD`) 70'ten 65'e sıkılaştırıldı - 311 kapanan işlemin `entry_rsi_15m` verisiyle gerçek kazanma oranı incelendi: RSI 45-65 aralığında girilen işlemler ~%67 kazanırken, 65-75 aralığında %50'ye düşüyordu (n=16, GIGGLEUSDT canlı olayı sonrası yapılan inceleme sırasında bulundu). Küçük örneklem - sonraki işlemlerle izlenmeli.
+
 ## [1.88.0] - 2026-08-02
 
 ### Yeni Özellik
