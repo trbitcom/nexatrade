@@ -957,6 +957,9 @@ $openSettingsModal = !empty($successMessage) || !empty($errorMessage) || !empty(
                         // Kar Al Tavanini Kaldirma: Sinirsiz Izleme'de artik sabit bir TP hedefi yok -
                         // bkz. AutoTradeController::removeTakeProfitCeiling()
                         $takeProfitRemoved = (int) ($trade['take_profit_removed'] ?? 0) === 1;
+                        // Dogal Mod: musteri "Emirleri Iptal Et" ile koruma emrini bilerek iptal etti -
+                        // bkz. updateManualModeUI() ve database.sql migrasyon yorumu (2 Agustos)
+                        $manualMode = (int) ($trade['manual_mode'] ?? 0) === 1;
                         ?>
                         <div data-hunt-card="<?= $tradeId ?>" class="rounded-lg border border-black/5 bg-black/[0.02] px-3 py-2">
                             <div class="flex justify-between items-center mb-1">
@@ -979,6 +982,11 @@ $openSettingsModal = !empty($successMessage) || !empty($errorMessage) || !empty(
                             </div>
                             <div class="flex gap-1 mt-1">
                                 <button type="button" onclick="openLiveChart(<?= $tradeId ?>)" class="flex-1 font-mono-tech text-[9px] text-cyan-600 border border-cyan-400/30 rounded px-1.5 py-0.5 hover:bg-cyan-400/10 transition-colors">📈 Canlı İzle</button>
+                                <?php if ($manualMode): ?>
+                                    <span data-trade-manual-btn="<?= $tradeId ?>" data-manual-applied="1" class="flex-1 font-mono-tech text-[9px] text-amber-600 border border-amber-400/20 rounded px-1.5 py-0.5 text-center cursor-help" title="Koruma emirleri iptal edildi, pozisyon doğal seyrinde. Yükseliş uyarılarıyla takip edip istediğinizde elle kapatın.">🔓 Doğal Mod</span>
+                                <?php else: ?>
+                                    <button type="button" data-trade-manual-btn="<?= $tradeId ?>" onclick="cancelPositionOrders(<?= $tradeId ?>, '<?= htmlspecialchars((string) $trade['pair'], ENT_QUOTES, 'UTF-8') ?>')" class="flex-1 font-mono-tech text-[9px] text-amber-600 border border-amber-400/30 rounded px-1.5 py-0.5 hover:bg-amber-400/10 transition-colors">🔓 Doğal Bırak</button>
+                                <?php endif; ?>
                                 <button type="button" onclick="closePositionNow(<?= $tradeId ?>, '<?= htmlspecialchars((string) $trade['pair'], ENT_QUOTES, 'UTF-8') ?>')" class="flex-1 font-mono-tech text-[9px] text-rose-600 border border-rose-400/30 rounded px-1.5 py-0.5 hover:bg-rose-400/10 transition-colors">✕ Şimdi Kapat</button>
                             </div>
                             <!-- Anlik fiyat/ilerleme/Izleyen Zirh durumu (Binance sorgusu gerektirir) sayfa
@@ -2498,6 +2506,43 @@ $openSettingsModal = !empty($successMessage) || !empty($errorMessage) || !empty(
                 });
         }
 
+        // 2 Ağustos'ta eklendi: "Doğal Bırak" - pozisyonu SATMADAN sadece koruma emrini (OCO/Zarar
+        // Kes) iptal eder, otomatik İzleyen Stop/Fitil Koruması/DCA bir daha bu pozisyona dokunmaz -
+        // sadece Yükseliş Uyarısı bilgi amaçlı çalışmaya devam eder, kapatma kararı tamamen manuel
+        // kalır (bkz. DashboardController::apiCancelPositionOrders). TEK YÖNLÜDÜR, geri alınamaz
+        function cancelPositionOrders(tradeId, pair) {
+            if (!confirm(pair + ' için TÜM koruma emirlerini (Kâr Al/Zarar Kes) iptal etmek istediğine emin misin?\n\nBundan sonra pozisyon TAMAMEN KORUMASIZ kalır ve otomatik sistem bu pozisyona bir daha dokunmaz - sadece Yükseliş Uyarısı bildirimleriyle takip edip istediğinde "Şimdi Kapat" ile elle kapatırsın.')) return;
+
+            var formData = new URLSearchParams();
+            formData.append('trade_id', tradeId);
+
+            fetch(_BASE + '/api/dashboard/cancel-position-orders', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: formData.toString()
+            })
+                .then(function (r) { return r.json(); })
+                .then(function (d) {
+                    if (d.success) {
+                        showToast(pair + ' artık Doğal Modda - koruma emirleri iptal edildi', true);
+                        updateManualModeUI(tradeId, true);
+                    } else {
+                        showToast(d.message || 'Emirler iptal edilemedi', false);
+                    }
+                })
+                .catch(function () {
+                    showToast('Emirler iptal edilemedi', false);
+                });
+        }
+
+        // updateTakeProfitBadge() ile AYNI tek-yonlu desen: manualApplied dataset bayragiyla
+        // "zaten uygulandi mi" kontrolu yapilip gereksiz DOM yazimindan kacinilir
+        function updateManualModeUI(id, manualMode) {
+            var btn = document.querySelector('[data-trade-manual-btn="' + id + '"]');
+            if (!btn || !manualMode || btn.dataset.manualApplied === '1') return;
+            btn.outerHTML = '<span data-trade-manual-btn="' + id + '" data-manual-applied="1" class="flex-1 font-mono-tech text-[9px] text-amber-600 border border-amber-400/20 rounded px-1.5 py-0.5 text-center cursor-help" title="Koruma emirleri iptal edildi, pozisyon doğal seyrinde. Yükseliş uyarılarıyla takip edip istediğinizde elle kapatın.">🔓 Doğal Mod</span>';
+        }
+
         function renderSystemStatusBody(d) {
             var moduleRows = Object.keys(d.modules).map(function (key) {
                 var m = d.modules[key];
@@ -3377,6 +3422,7 @@ $openSettingsModal = !empty($successMessage) || !empty($errorMessage) || !empty(
                     + '</div>'
                     + '<div class="flex gap-1 mt-1">'
                     + '<button type="button" onclick="openLiveChart(' + id + ')" class="flex-1 font-mono-tech text-[9px] text-cyan-600 border border-cyan-400/30 rounded px-1.5 py-0.5 hover:bg-cyan-400/10 transition-colors">📈 Canlı İzle</button>'
+                    + '<button type="button" data-trade-manual-btn="' + id + '" onclick="cancelPositionOrders(' + id + ', \'' + (t.pair || '') + '\')" class="flex-1 font-mono-tech text-[9px] text-amber-600 border border-amber-400/30 rounded px-1.5 py-0.5 hover:bg-amber-400/10 transition-colors">🔓 Doğal Bırak</button>'
                     + '<button type="button" onclick="closePositionNow(' + id + ', \'' + (t.pair || '') + '\')" class="flex-1 font-mono-tech text-[9px] text-rose-600 border border-rose-400/30 rounded px-1.5 py-0.5 hover:bg-rose-400/10 transition-colors">✕ Şimdi Kapat</button>'
                     + '</div>'
                     + '<div data-trade-progress="' + id + '">'
@@ -3387,6 +3433,7 @@ $openSettingsModal = !empty($successMessage) || !empty($errorMessage) || !empty(
 
                 updateShieldBadge(id, t.trailing_stop_stage);
                 updateTakeProfitBadge(id, t.take_profit_removed);
+                updateManualModeUI(id, t.manual_mode);
             });
 
             updateHuntsCountBadge();
@@ -3452,6 +3499,7 @@ $openSettingsModal = !empty($successMessage) || !empty($errorMessage) || !empty(
 
                 updateShieldBadge(id, t.trailing_stop_stage);
                 updateTakeProfitBadge(id, t.take_profit_removed);
+                updateManualModeUI(id, t.manual_mode);
                 var slEl = document.querySelector('[data-trade-sl="' + id + '"]');
                 if (slEl && t.stop_loss_price !== null && t.stop_loss_price !== undefined) {
                     slEl.textContent = fmt$(parseFloat(t.stop_loss_price)).replace('$', '');

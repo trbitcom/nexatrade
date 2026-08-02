@@ -2482,6 +2482,22 @@ final class AutoTradeController
                 // basarisiz olup clearOcoReference cagirdiginda)
                 $takeProfitRemoved = (bool) ((int) ($trade['take_profit_removed'] ?? 0));
 
+                // Dogal Mod (bkz. database.sql migrasyon yorumu, 2 Agustos): musteri koruma emirlerini
+                // BILEREK iptal etti - Korumasiz Pozisyon Alarmi'nin "acil" saydigi durumdan FARKLIDIR
+                // (canli bir hata degil, musterinin kendi tercihi). Izleyen Stop/Fitil Korumasi/DCA/
+                // Erken Cikis mantigina hic girmez - SADECE zirve/dip fiyat takibi ve Yukselis Uyarisi
+                // (bilgi amacli) calismaya devam eder, musteri "Simdi Kapat" ile istedigi an kendi kapatir
+                if ((int) ($trade['manual_mode'] ?? 0) === 1) {
+                    $diagnosticPrice = (new BinanceService('', ''))->getPrice($pair);
+
+                    if ($diagnosticPrice > 0) {
+                        ActiveTrade::updatePriceExtremes($tradeId, $diagnosticPrice);
+                        $this->checkRiseAlert($trade, $diagnosticPrice);
+                    }
+
+                    continue;
+                }
+
                 if (!$takeProfitRemoved && $trade['oco_order_list_id'] === null) {
                     // 31 Temmuz'da eklendi: bu dal eskiden SESSIZCE atlanip pozisyonu SONSUZA KADAR
                     // mutabakat disinda birakiyordu - bkz. alertIfUnprotected() yorumu (Volkan #243
@@ -3067,7 +3083,14 @@ final class AutoTradeController
             }
         }
 
-        $message .= "\n\nİsterseniz dashboard'dan \"Şimdi Kapat\" ile manuel kâr alabilirsiniz - bot otomatik stratejisine (İzleyen Stop) devam ediyor, bu sadece bilgilendirmedir.";
+        if ((int) ($trade['manual_mode'] ?? 0) === 1) {
+            // Dogal Mod: bu pozisyonda ARTIK otomatik koruma emri yok (musteri bilerek iptal etti) -
+            // "bot otomatik stratejisine devam ediyor" cumlesi burada YANLIS olur, bkz.
+            // reconcileActiveTradesInternal() manual_mode dali
+            $message .= "\n\n🔓 Bu pozisyon Doğal Modda - otomatik koruma emri yok, sadece siz kapatabilirsiniz. İsterseniz dashboard'dan \"Şimdi Kapat\" ile kâr alın.";
+        } else {
+            $message .= "\n\nİsterseniz dashboard'dan \"Şimdi Kapat\" ile manuel kâr alabilirsiniz - bot otomatik stratejisine (İzleyen Stop) devam ediyor, bu sadece bilgilendirmedir.";
+        }
 
         $this->telegram->notifyUser($chatId, $message);
     }

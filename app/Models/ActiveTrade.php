@@ -406,6 +406,22 @@ final class ActiveTrade
         $stmt->execute([':id' => $tradeId]);
     }
 
+    // Dogal Mod: musteri "Emirleri Iptal Et" ile koruma emrini BILEREK iptal etti - bkz. database.sql
+    // migrasyon yorumu. Cagiran taraf (DashboardController::apiCancelPositionOrders) Binance'teki
+    // OCO/tekil Zarar Kes emrini BURADAN ONCE iptal etmis olmali - bu metod sadece o gercegi DB'ye
+    // yansitir (clearOcoReference ile AYNI temizlik + manual_mode=1). TEK YONLUDUR, geri alinamaz
+    public static function enableManualMode(int $tradeId): void
+    {
+        $pdo = Database::getInstance();
+
+        $stmt = $pdo->prepare(
+            'UPDATE active_trades
+             SET manual_mode = 1, oco_order_list_id = NULL, take_profit_order_id = NULL, stop_loss_order_id = NULL
+             WHERE id = :id'
+        );
+        $stmt->execute([':id' => $tradeId]);
+    }
+
     // DCA alimi gerceklesti ama eski OCO iptal EDILEMEDI durumunda kullanilir: eski OCO hala
     // gecerli ve ESKI miktari korumaya devam ediyor, bu yuzden entry_price/quantity/oco alanlarina
     // DOKUNULMAZ (yanlislikla degistirmek eski korumayi da bozardi) - sadece DCA hakkinin

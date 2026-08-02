@@ -1055,6 +1055,9 @@ final class DashboardController
                     // JS tarafinda sayfa yenilenmeden "Sinirsiz (∞)" rozetine donusebilmesi icin -
                     // bkz. dashboard/index.php'deki updateTakeProfitBadge()
                     'take_profit_removed' => (int) ($trade['take_profit_removed'] ?? 0) === 1,
+                    // Dogal Mod: bkz. dashboard/index.php updateManualModeUI() ve database.sql
+                    // migrasyon yorumu (2 Agustos) - musteri koruma emirlerini bilerek iptal etti
+                    'manual_mode'         => (int) ($trade['manual_mode'] ?? 0) === 1,
                 ];
             }
 
@@ -1578,6 +1581,69 @@ final class DashboardController
             // ici) hata olursa bu artik sessiz kalmamali: criticalPersist() zaten kendi notifyAdmin
             // AndCustomer'ini tetikler, burasi sadece error_log icin ek bir guvenlik agi
             echo json_encode(['success' => false, 'message' => 'Pozisyon kapatılamadı'], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
+    // "Doğal Mod" / Emirleri İptal Et (2 Ağustos, müşteri talebi): pozisyonu SATMADAN sadece mevcut
+    // koruma emrini (OCO ya da tekil Zarar Kes) Binance'te iptal eder ve pozisyonu manual_mode=1
+    // olarak işaretler - bkz. ActiveTrade::enableManualMode() ve AutoTradeController::
+    // reconcileActiveTradesInternal() yorumu. apiClosePosition()'dan FARKLI: burada piyasa satışı
+    // YOK, pozisyon açık kalır, sadece otomatik yönetimden (İzleyen Stop/Fitil/DCA) çıkar - müşteri
+    // Yükseliş Uyarısı bildirimleriyle takip edip istediği an kendi "Şimdi Kapat" ile kapatır.
+    // Binance iptali BAŞARISIZ olursa (ör. emir zaten dolmuş) manual_mode HİÇ işaretlenmez - aksi
+    // halde canlıda hâlâ aktif bir OCO varken sistem bu pozisyonu izlemeyi bırakmış olurdu
+    public function apiCancelPositionOrders(): void
+    {
+        $userId = $this->requireAjaxAuth();
+        if ($userId === null) {
+            return;
+        }
+
+        header('Content-Type: application/json');
+
+        try {
+            $tradeId = (int) ($_POST['trade_id'] ?? 0);
+            $trade = ActiveTrade::findById($tradeId);
+
+            if ($trade === null || (int) $trade['user_id'] !== $userId || $trade['status'] !== 'open') {
+                echo json_encode(['success' => false, 'message' => 'Pozisyon bulunamadı veya zaten kapalı'], JSON_UNESCAPED_UNICODE);
+                return;
+            }
+
+            if ((int) ($trade['manual_mode'] ?? 0) === 1) {
+                echo json_encode(['success' => true], JSON_UNESCAPED_UNICODE);
+                return;
+            }
+
+            $apiKeys = ApiKey::findByUser($userId);
+
+            if ($apiKeys === []) {
+                echo json_encode(['success' => false, 'message' => 'API anahtarı bulunamadı'], JSON_UNESCAPED_UNICODE);
+                return;
+            }
+
+            $binance = new BinanceService($apiKeys[0]['api_key'], $apiKeys[0]['secret_key']);
+            $pair = (string) $trade['pair'];
+
+            if ($trade['oco_order_list_id'] !== null) {
+                $cancelResult = $binance->cancelOcoOrder($pair, (int) $trade['oco_order_list_id']);
+            } elseif ($trade['stop_loss_order_id'] !== null) {
+                $cancelResult = $binance->cancelOrder($pair, (int) $trade['stop_loss_order_id']);
+            } else {
+                $cancelResult = ['success' => true];
+            }
+
+            if (!$cancelResult['success']) {
+                echo json_encode(['success' => false, 'message' => 'Koruma emri iptal edilemedi: ' . ($cancelResult['error'] ?? 'bilinmeyen hata')], JSON_UNESCAPED_UNICODE);
+                return;
+            }
+
+            ActiveTrade::enableManualMode($tradeId);
+
+            echo json_encode(['success' => true], JSON_UNESCAPED_UNICODE);
+        } catch (Throwable $e) {
+            error_log('[apiCancelPositionOrders] ' . $e->getMessage());
+            echo json_encode(['success' => false, 'message' => 'Emirler iptal edilemedi'], JSON_UNESCAPED_UNICODE);
         }
     }
 

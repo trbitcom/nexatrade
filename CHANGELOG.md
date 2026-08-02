@@ -2,6 +2,11 @@
 
 Bu dosya NexaTrade'in sürüm geçmişini tutar. Format [Keep a Changelog](https://keepachangelog.com/tr/1.0.0/) ilkelerini, sürümleme ise [Semantic Versioning](https://semver.org/lang/tr/) (Major.Minor.Patch) kurallarını izler.
 
+## [1.88.0] - 2026-08-02
+
+### Yeni Özellik
+- [Aktif Avlar] "🔓 Doğal Bırak" butonu eklendi - müşteri talebi: kâra geçip sonra yukarı-aşağı savrularak küçük bir rakama satan pozisyonlar için, koruma emrini (OCO/Zarar Kes) bilerek iptal edip pozisyonu otomatik yönetimden (İzleyen Stop/Fitil Koruması/DCA) çıkarma seçeneği. Pozisyon SATILMAZ, açık kalır - sadece Yükseliş Uyarısı bildirimleriyle (bilgi amaçlı) takip edilip müşteri istediği an "Şimdi Kapat" ile elle kapatır. Geri dönüşü YOKTUR. Yeni `active_trades.manual_mode` sütunu + `ActiveTrade::enableManualMode()` + `DashboardController::apiCancelPositionOrders()` (`POST /api/dashboard/cancel-position-orders`). Korumasız Pozisyon Alarmı bu durumu artık "acil" saymıyor (bilerek yapılan bir tercih, canlı bir hata değil).
+
 ## [1.87.0] - 2026-07-31
 
 ### Hata Düzeltme (Kritik)

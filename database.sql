@@ -174,6 +174,7 @@ CREATE TABLE IF NOT EXISTS `active_trades` (
     `ai_entry_score` TINYINT UNSIGNED NULL COMMENT 'Girisi onaylayan GPT/AI skoru (0-100) - oncesinde SADECE bot_logs''a (sembol+zaman yaklasik eslesmesiyle) yaziliyordu, artik pozisyonun KENDI satirinda kalici/kesin olarak tutulur - "hangi skorla girilen islemler kar/zarar getirdi" analizini kesinlestirir. Sosyal Radar/Pusu kurtarma gibi yollardan gelen adaylarda da GPT skoru (varsa telafi puani dahil) budur',
     `rise_alert_last_percent` SMALLINT UNSIGNED NOT NULL DEFAULT 0 COMMENT 'Yukselis Uyarisi: musteriye (bilgi amacli, otomatik satis DEGIL) en son bildirim gonderilen tam yuzde esigi (ör. 2) - fiyat bir sonraki esigi (ör. 3) gecince YENI bir bildirim gonderilir, ayni esik icin tekrar gonderilmez. bkz. AutoTradeController::RISE_ALERT_START_PERCENT/STEP_PERCENT',
     `unprotected_alert_sent_at` DATETIME NULL COMMENT 'Korumasiz Pozisyon Alarmi: bu pozisyon icin en son ne zaman uyari gonderildi - bkz. ActiveTrade::shouldSendUnprotectedAlert()',
+    `manual_mode` TINYINT(1) UNSIGNED NOT NULL DEFAULT 0 COMMENT 'Musteri koruma emirlerini bilerek iptal etti (Dogal Mod) - otomatik Izleyen Stop/Fitil Korumasi/DCA/Korumasiz Alarmi bu pozisyona bir daha dokunmaz, sadece Yukselis Uyarisi bilgi amacli calismaya devam eder. bkz. AutoTradeController::reconcileActiveTradesInternal()',
     `opened_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `closed_at` TIMESTAMP NULL,
     PRIMARY KEY (`id`),
@@ -747,6 +748,20 @@ ALTER TABLE `active_trades`
 -- --------------------------------------------------------
 ALTER TABLE `active_trades`
     ADD COLUMN IF NOT EXISTS `unprotected_alert_sent_at` DATETIME NULL COMMENT 'Korumasiz Pozisyon Alarmi: bu pozisyon icin en son ne zaman uyari gonderildi - bkz. ActiveTrade::shouldSendUnprotectedAlert()';
+
+-- --------------------------------------------------------
+-- Migrasyon: Dogal Mod / "Emirleri Iptal Et" (2 Agustos) - musteri talebi: kar alip sonra yukari
+-- asagi savrulup kucuk bir rakama satan pozisyonlar icin, koruma emrini (OCO/tekil Zarar Kes)
+-- BILEREK iptal edip pozisyonu kendi dogal seyrine birakma secenegi - musteri Yukselis Uyarisi
+-- bildirimleriyle (bkz. checkRiseAlert) takip edip istedigi an "Simdi Kapat" ile kendisi kapatir.
+-- DashboardController::apiCancelPositionOrders() Binance'teki emri iptal edip bu bayragi 1'e ceker -
+-- GERIYE DONUSU YOKTUR (take_profit_removed ile AYNI tek-yonlu desen). Bu bayrak 1 oldugunda
+-- reconcileActiveTradesInternal() pozisyonu fiyat takibi/Yukselis Uyarisi DISINDA hic islemez -
+-- Korumasiz Pozisyon Alarmi da bunu "acil" saymaz (musterinin BILEREK yaptigi bir tercih, canli
+-- bir hata degil)
+-- --------------------------------------------------------
+ALTER TABLE `active_trades`
+    ADD COLUMN IF NOT EXISTS `manual_mode` TINYINT(1) UNSIGNED NOT NULL DEFAULT 0 COMMENT 'Musteri koruma emirlerini bilerek iptal etti (Dogal Mod) - otomatik Izleyen Stop/Fitil Korumasi/DCA/Korumasiz Alarmi bu pozisyona bir daha dokunmaz, sadece Yukselis Uyarisi bilgi amacli calismaya devam eder';
 
 -- --------------------------------------------------------
 -- Test kullanicisi (login akisini denemek icin) - admin yetkisiyle
