@@ -2,6 +2,11 @@
 
 Bu dosya NexaTrade'in sürüm geçmişini tutar. Format [Keep a Changelog](https://keepachangelog.com/tr/1.0.0/) ilkelerini, sürümleme ise [Semantic Versioning](https://semver.org/lang/tr/) (Major.Minor.Patch) kurallarını izler.
 
+## [1.90.1] - 2026-08-04
+
+### Hata Düzeltme
+- [dashboard/index.php, DashboardController] Sayfa açıkken açılan yeni bir futures (KISA) pozisyonu, sayfa yenilenmeden "Aktif Avlar" listesinde hiç görünmüyordu - `updateFuturesProgress()` sadece DOM'da ZATEN var olan kartların içeriğini güncelliyordu, yeni kart hiç oluşturmuyordu (spot tarafında `syncHuntCards()` ile daha önce çözülen AYNI sorun, futures kapsam dışı bırakılmıştı). Yeni `syncFuturesCards()` eklendi, `apiFuturesPositions()` artık kart iskeletini (parite/giriş/TP/SL/kaldıraç) de dönüyor.
+
 ## [1.90.0] - 2026-08-04
 
 ### Yeni Özellik

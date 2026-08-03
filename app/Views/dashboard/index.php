@@ -1003,7 +1003,7 @@ $openSettingsModal = !empty($successMessage) || !empty($errorMessage) || !empty(
                         $stopPrice = (float) $trade['stop_loss_price'];
                         $leverage = (int) $trade['leverage'];
                         ?>
-                        <div class="rounded-lg border border-rose-500/20 bg-rose-500/5 px-3 py-2">
+                        <div data-futures-card="<?= (int) $trade['id'] ?>" class="rounded-lg border border-rose-500/20 bg-rose-500/5 px-3 py-2">
                             <div class="flex justify-between items-center mb-1">
                                 <span class="flex items-center gap-1.5">
                                     <span class="font-mono-tech text-[9px] font-bold text-rose-600 border border-rose-400/40 rounded px-1 py-0.5">KISA <?= $leverage ?>x</span>
@@ -3542,12 +3542,60 @@ $openSettingsModal = !empty($successMessage) || !empty($errorMessage) || !empty(
         }
 
         // --- Kısa (Futures) Pozisyonlar ---
+        // 4 Ağustos'ta eklendi: syncHuntCards() ile AYNI gerekçe - eskiden sadece zaten DOM'da olan
+        // kartların içeriği güncelleniyordu, sayfa açıkken açılan YENİ bir futures pozisyonu
+        // (Deterministik Motor'un bulduğu bir short gibi) sayfa yenilenmeden hiç görünmüyordu
+        function syncFuturesCards(trades) {
+            var container = document.getElementById('huntsContainer');
+            if (!container) return;
+
+            var seenIds = Object.keys(trades);
+
+            document.querySelectorAll('[data-futures-card]').forEach(function(card) {
+                if (seenIds.indexOf(card.getAttribute('data-futures-card')) === -1) {
+                    card.remove();
+                }
+            });
+
+            seenIds.forEach(function(id) {
+                if (document.querySelector('[data-futures-card="' + id + '"]')) return;
+
+                var t = trades[id];
+                var placeholder = container.querySelector('[data-hunts-empty]');
+                if (placeholder) placeholder.remove();
+
+                var card = document.createElement('div');
+                card.setAttribute('data-futures-card', id);
+                card.className = 'rounded-lg border border-rose-500/20 bg-rose-500/5 px-3 py-2';
+                card.innerHTML =
+                    '<div class="flex justify-between items-center mb-1">'
+                    + '<span class="flex items-center gap-1.5">'
+                    + '<span class="font-mono-tech text-[9px] font-bold text-rose-600 border border-rose-400/40 rounded px-1 py-0.5">KISA ' + (t.leverage || '') + 'x</span>'
+                    + '<span class="font-mono-tech text-xs font-semibold text-gray-800">' + coinIconHtml(t.pair) + escapeHtml(t.pair || '') + '</span>'
+                    + '</span>'
+                    + '<span class="font-mono-tech text-[10px] text-gray-500">Giriş: ' + fmt$(t.entry_price) + '</span>'
+                    + '</div>'
+                    + '<div class="flex justify-between items-center mb-1.5">'
+                    + '<span class="font-mono-tech text-[10px] text-rose-600">SL ' + fmt$(t.stop_loss_price) + '</span>'
+                    + '<span class="font-mono-tech text-[10px] text-emerald-600">TP ' + fmt$(t.take_profit_price) + '</span>'
+                    + '</div>'
+                    + '<div data-futures-progress="' + id + '">'
+                    + '<p class="font-mono-tech text-[10px] text-gray-500 mt-1">fiyat yükleniyor...</p>'
+                    + '</div>';
+
+                container.appendChild(card);
+            });
+
+            updateHuntsCountBadge();
+        }
+
         function fetchFuturesPositions() {
             safeFetch('/api/dashboard/futures-positions')
                 .then(function(d) {
                     if (!d.success) { return; }
                     var trades = d.trades || {};
                     _openFuturesTradeCount = Object.keys(trades).length;
+                    syncFuturesCards(trades);
                     updateFuturesProgress(trades);
                     updateNavOpenPositions();
                 })

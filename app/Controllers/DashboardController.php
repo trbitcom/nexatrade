@@ -590,6 +590,25 @@ final class DashboardController
         $trades = ActiveFuturesTrade::findOpenForUser($userId);
         $result = [];
 
+        // 4 Agustos'ta eklendi: kart iskeletini (parite/giris/TP/SL/kaldirac) sayfa yenilenmeden
+        // JS ile insa edebilmek icin - bkz. dashboard/index.php'deki syncFuturesCards() ve AYNI
+        // deseni kullanan apiHunts() yorumu. Eskiden bu alanlar SADECE ilk sayfa yuklemesinde PHP
+        // tarafinda render ediliyordu, sayfa acikken acilan yeni bir futures pozisyonu (ör. Deterministik
+        // Motor'un XRPUSDT'yi bulmasi gibi) sayfa yenilenmeden HICBIR ZAMAN listede gorunmuyordu
+        foreach ($trades as $trade) {
+            $result[(int) $trade['id']] = [
+                'pair' => $trade['pair'],
+                'entry_price' => (float) $trade['entry_price'],
+                'take_profit_price' => (float) $trade['take_profit_price'],
+                'stop_loss_price' => (float) $trade['stop_loss_price'],
+                'leverage' => (int) $trade['leverage'],
+                'mark_price' => null,
+                'liquidation_price' => null,
+                'unrealized_pnl_usdt' => null,
+                'unrealized_pnl_pct' => null,
+            ];
+        }
+
         if ($existingKey !== null && $trades !== []) {
             try {
                 $futures = new BinanceFuturesService($existingKey['api_key'], $existingKey['secret_key']);
@@ -600,18 +619,16 @@ final class DashboardController
                         $entryPrice = (float) $trade['entry_price'];
                         $markPrice = $risk['mark_price'];
 
-                        $result[(int) $trade['id']] = [
-                            'mark_price' => $markPrice > 0 ? $markPrice : null,
-                            'liquidation_price' => $risk['liquidation_price'] > 0 ? $risk['liquidation_price'] : null,
-                            // SHORT: kar fiyat DUSTUKCE olusur - unrealized_profit alani zaten
-                            // Binance'ten dogru yonde (short icin negatif/pozitif) geliyor
-                            'unrealized_pnl_usdt' => round($risk['unrealized_profit'], 2),
-                            'unrealized_pnl_pct' => $entryPrice > 0 && $markPrice > 0
-                                ? round((($entryPrice - $markPrice) / $entryPrice) * 100, 2)
-                                : null,
-                        ];
+                        $result[(int) $trade['id']]['mark_price'] = $markPrice > 0 ? $markPrice : null;
+                        $result[(int) $trade['id']]['liquidation_price'] = $risk['liquidation_price'] > 0 ? $risk['liquidation_price'] : null;
+                        // SHORT: kar fiyat DUSTUKCE olusur - unrealized_profit alani zaten
+                        // Binance'ten dogru yonde (short icin negatif/pozitif) geliyor
+                        $result[(int) $trade['id']]['unrealized_pnl_usdt'] = round($risk['unrealized_profit'], 2);
+                        $result[(int) $trade['id']]['unrealized_pnl_pct'] = $entryPrice > 0 && $markPrice > 0
+                            ? round((($entryPrice - $markPrice) / $entryPrice) * 100, 2)
+                            : null;
                     } catch (Throwable $e) {
-                        $result[(int) $trade['id']] = ['mark_price' => null, 'liquidation_price' => null, 'unrealized_pnl_usdt' => null, 'unrealized_pnl_pct' => null];
+                        // statik alanlar yukarida zaten yazildi, sadece canli alanlar null kalir
                     }
                 }
             } catch (Throwable $e) {
