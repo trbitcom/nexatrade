@@ -2160,6 +2160,74 @@ final class AutoTradeController
         $this->notifyCustomer($userId, $entryMessage);
     }
 
+    // "Korumaya Al" (4 Agustos): Dogal Moddaki bir pozisyona GUNCEL fiyata gore yeni bir OCO koyar -
+    // enableManualMode()/apiCancelPositionOrders()'in tersi (GIGGLEUSDT #326 canli deneyiminde bu
+    // yolun eksikligi fark edildi). DashboardController::apiRearmProtection() tarafindan cagrilir -
+    // protectPositionWithOco() ile AYNI adim sirasini (exchangeInfo step/tick size -> floorToStep ->
+    // placeOCOOrder) takip eder, ama GIRIS fiyatindan degil GUNCEL fiyattan hesaplar - pozisyon
+    // Dogal Moddayken cok hareket etmis olabilir, eski entry_price artik anlamli bir referans degil.
+    // Miktara FEE_SAFETY_MARGIN uygulanmaz (protectPositionWithOco'nun aksine) - trade.quantity zaten
+    // ILK alimdan beri elde tutulan GUNCEL/fee-dusulmus miktardir, tekrar kucultmeye gerek yok
+    public function rearmProtection(BinanceService $binance, array $trade, float $stopLossPercent, float $takeProfitPercent): array
+    {
+        $pair = (string) $trade['pair'];
+        $tradeId = (int) $trade['id'];
+        $quantity = (float) $trade['quantity'];
+
+        try {
+            $currentPrice = $binance->getPrice($pair);
+        } catch (Throwable $e) {
+            return ['success' => false, 'message' => 'Güncel fiyat alınamadı.'];
+        }
+
+        if ($currentPrice <= 0) {
+            return ['success' => false, 'message' => 'Güncel fiyat alınamadı.'];
+        }
+
+        try {
+            $filters = $binance->getSymbolFilters($pair);
+            $stepSize = $filters['step_size'] > 0 ? $filters['step_size'] : 0.0001;
+            $tickSize = $filters['tick_size'] > 0 ? $filters['tick_size'] : 0.00000001;
+        } catch (Throwable $e) {
+            $stepSize = 0.0001;
+            $tickSize = 0.00000001;
+        }
+
+        $newTakeProfitPrice = $this->floorToStep($currentPrice * (1 + $takeProfitPercent / 100), $tickSize);
+        $newStopLossPrice = $this->floorToStep($currentPrice * (1 - $stopLossPercent / 100), $tickSize);
+        $ocoQuantity = $this->floorToStep($quantity, $stepSize);
+
+        if ($ocoQuantity <= 0) {
+            return ['success' => false, 'message' => 'Miktar sıfır çıktı.'];
+        }
+
+        $ocoResult = $binance->placeOCOOrder($pair, 'SELL', $ocoQuantity, $newTakeProfitPrice, $newStopLossPrice);
+
+        if (!$ocoResult['success']) {
+            return ['success' => false, 'message' => 'Koruma emri girilemedi: ' . $ocoResult['error']];
+        }
+
+        ActiveTrade::disableManualMode(
+            $tradeId,
+            $newTakeProfitPrice,
+            $newStopLossPrice,
+            (int) $ocoResult['order_list_id'],
+            $ocoResult['take_profit_order_id'] !== null ? (int) $ocoResult['take_profit_order_id'] : null,
+            $ocoResult['stop_loss_order_id'] !== null ? (int) $ocoResult['stop_loss_order_id'] : null
+        );
+
+        $this->logAutomationError(sprintf(
+            'Pozisyon #%d (%s): Doğal Moddan çıkarılıp güncel fiyata (%s) göre yeniden korumaya alındı - Kâr Al: %s, Zarar Kes: %s',
+            $tradeId,
+            $pair,
+            $this->formatPrice($currentPrice),
+            $this->formatPrice($newTakeProfitPrice),
+            $this->formatPrice($newStopLossPrice)
+        ));
+
+        return ['success' => true, 'take_profit_price' => $newTakeProfitPrice, 'stop_loss_price' => $newStopLossPrice];
+    }
+
     // Binance'in resmi exchangeInfo listesini onceki taramada kaydedilenle karsilastirir
     // Ilk calistirmada (tablo bosken) tum mevcut pariteler taban olarak kaydedilir, "yeni" sayilmaz;
     // sonraki her calistirmada listede daha once olmayan pariteler "yeni listelenen" olarak isaretlenir

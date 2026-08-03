@@ -991,9 +991,9 @@ $openSettingsModal = !empty($successMessage) || !empty($errorMessage) || !empty(
                             <div class="flex gap-1 mt-1">
                                 <button type="button" onclick="openLiveChart(<?= $tradeId ?>)" class="flex-1 font-mono-tech text-[9px] text-cyan-600 border border-cyan-400/30 rounded px-1.5 py-0.5 hover:bg-cyan-400/10 transition-colors">📈 Canlı İzle</button>
                                 <?php if ($manualMode): ?>
-                                    <span data-trade-manual-btn="<?= $tradeId ?>" data-manual-applied="1" class="flex-1 font-mono-tech text-[9px] text-amber-600 border border-amber-400/20 rounded px-1.5 py-0.5 text-center cursor-help" title="Koruma emirleri iptal edildi, pozisyon doğal seyrinde. Yükseliş uyarılarıyla takip edip istediğinizde elle kapatın.">🔓 Doğal Mod</span>
+                                    <button type="button" data-trade-manual-btn="<?= $tradeId ?>" data-manual-state="1" onclick="rearmProtection(<?= $tradeId ?>, '<?= htmlspecialchars((string) $trade['pair'], ENT_QUOTES, 'UTF-8') ?>')" class="flex-1 font-mono-tech text-[9px] text-violet-600 border border-violet-400/30 rounded px-1.5 py-0.5 hover:bg-violet-400/10 transition-colors" title="Güncel fiyata göre yeni bir Kâr Al/Zarar Kes koyup normal yönetime geri döndürür">🔒 Korumaya Al</button>
                                 <?php else: ?>
-                                    <button type="button" data-trade-manual-btn="<?= $tradeId ?>" onclick="cancelPositionOrders(<?= $tradeId ?>, '<?= htmlspecialchars((string) $trade['pair'], ENT_QUOTES, 'UTF-8') ?>')" class="flex-1 font-mono-tech text-[9px] text-amber-600 border border-amber-400/30 rounded px-1.5 py-0.5 hover:bg-amber-400/10 transition-colors">🔓 Doğal Bırak</button>
+                                    <button type="button" data-trade-manual-btn="<?= $tradeId ?>" data-manual-state="0" onclick="cancelPositionOrders(<?= $tradeId ?>, '<?= htmlspecialchars((string) $trade['pair'], ENT_QUOTES, 'UTF-8') ?>')" class="flex-1 font-mono-tech text-[9px] text-amber-600 border border-amber-400/30 rounded px-1.5 py-0.5 hover:bg-amber-400/10 transition-colors">🔓 Doğal Bırak</button>
                                 <?php endif; ?>
                                 <button type="button" onclick="closePositionNow(<?= $tradeId ?>, '<?= htmlspecialchars((string) $trade['pair'], ENT_QUOTES, 'UTF-8') ?>')" class="flex-1 font-mono-tech text-[9px] text-rose-600 border border-rose-400/30 rounded px-1.5 py-0.5 hover:bg-rose-400/10 transition-colors">✕ Şimdi Kapat</button>
                             </div>
@@ -2517,9 +2517,10 @@ $openSettingsModal = !empty($successMessage) || !empty($errorMessage) || !empty(
         // 2 Ağustos'ta eklendi: "Doğal Bırak" - pozisyonu SATMADAN sadece koruma emrini (OCO/Zarar
         // Kes) iptal eder, otomatik İzleyen Stop/Fitil Koruması/DCA bir daha bu pozisyona dokunmaz -
         // sadece Yükseliş Uyarısı bilgi amaçlı çalışmaya devam eder, kapatma kararı tamamen manuel
-        // kalır (bkz. DashboardController::apiCancelPositionOrders). TEK YÖNLÜDÜR, geri alınamaz
+        // kalır (bkz. DashboardController::apiCancelPositionOrders). 4 Ağustos'ta "Korumaya Al" ile
+        // GERİ ALINABİLİR hale geldi - bkz. rearmProtection()
         function cancelPositionOrders(tradeId, pair) {
-            if (!confirm(pair + ' için TÜM koruma emirlerini (Kâr Al/Zarar Kes) iptal etmek istediğine emin misin?\n\nBundan sonra pozisyon TAMAMEN KORUMASIZ kalır ve otomatik sistem bu pozisyona bir daha dokunmaz - sadece Yükseliş Uyarısı bildirimleriyle takip edip istediğinde "Şimdi Kapat" ile elle kapatırsın.')) return;
+            if (!confirm(pair + ' için TÜM koruma emirlerini (Kâr Al/Zarar Kes) iptal etmek istediğine emin misin?\n\nBundan sonra pozisyon TAMAMEN KORUMASIZ kalır ve otomatik sistem bu pozisyona bir daha dokunmaz - sadece Yükseliş Uyarısı bildirimleriyle takip edip istediğinde "Şimdi Kapat" ile elle kapatırsın. İstersen sonra "Korumaya Al" ile geri dönebilirsin.')) return;
 
             var formData = new URLSearchParams();
             formData.append('trade_id', tradeId);
@@ -2533,7 +2534,7 @@ $openSettingsModal = !empty($successMessage) || !empty($errorMessage) || !empty(
                 .then(function (d) {
                     if (d.success) {
                         showToast(pair + ' artık Doğal Modda - koruma emirleri iptal edildi', true);
-                        updateManualModeUI(tradeId, true);
+                        updateManualModeUI(tradeId, true, pair);
                     } else {
                         showToast(d.message || 'Emirler iptal edilemedi', false);
                     }
@@ -2543,12 +2544,52 @@ $openSettingsModal = !empty($successMessage) || !empty($errorMessage) || !empty(
                 });
         }
 
-        // updateTakeProfitBadge() ile AYNI tek-yonlu desen: manualApplied dataset bayragiyla
-        // "zaten uygulandi mi" kontrolu yapilip gereksiz DOM yazimindan kacinilir
-        function updateManualModeUI(id, manualMode) {
+        // "Korumaya Al" (4 Ağustos): cancelPositionOrders()'in TERSİ - Doğal Moddaki bir pozisyona
+        // GÜNCEL fiyata göre yeni bir Kâr Al/Zarar Kes koyup normal/otomatik yönetime geri döndürür
+        // (bkz. AutoTradeController::rearmProtection()). Hedefler ESKİ giriş fiyatından değil ŞU ANKİ
+        // fiyattan hesaplanır - Doğal Moddayken fiyat çok hareket etmiş olabilir
+        function rearmProtection(tradeId, pair) {
+            if (!confirm(pair + ' için güncel fiyata göre yeni bir Kâr Al/Zarar Kes emri koyup normal yönetime geri döndürmek istediğine emin misin?')) return;
+
+            var formData = new URLSearchParams();
+            formData.append('trade_id', tradeId);
+
+            fetch(_BASE + '/api/dashboard/rearm-protection', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: formData.toString()
+            })
+                .then(function (r) { return r.json(); })
+                .then(function (d) {
+                    if (d.success) {
+                        showToast(pair + ' tekrar korumaya alındı', true);
+                        updateManualModeUI(tradeId, false, pair);
+                        fetchActiveTrades();
+                    } else {
+                        showToast(d.message || 'Korumaya alınamadı', false);
+                    }
+                })
+                .catch(function () {
+                    showToast('Korumaya alınamadı', false);
+                });
+        }
+
+        // updateTakeProfitBadge() ile BENZER desen ama IKI YONLU: data-manual-state ile "şu an hangi
+        // duruma göre çizildi" izlenir, gereksiz DOM yazımından kaçınılır ama manualMode ileri/geri
+        // değişebildiği için (Doğal Bırak <-> Korumaya Al) tek yönlü "applied" bayrağı YETERSİZ kalırdı
+        function updateManualModeUI(id, manualMode, pair) {
             var btn = document.querySelector('[data-trade-manual-btn="' + id + '"]');
-            if (!btn || !manualMode || btn.dataset.manualApplied === '1') return;
-            btn.outerHTML = '<span data-trade-manual-btn="' + id + '" data-manual-applied="1" class="flex-1 font-mono-tech text-[9px] text-amber-600 border border-amber-400/20 rounded px-1.5 py-0.5 text-center cursor-help" title="Koruma emirleri iptal edildi, pozisyon doğal seyrinde. Yükseliş uyarılarıyla takip edip istediğinizde elle kapatın.">🔓 Doğal Mod</span>';
+            if (!btn) return;
+            var targetState = manualMode ? '1' : '0';
+            if (btn.dataset.manualState === targetState) return;
+
+            var pairName = pair || btn.dataset.pair || '';
+
+            if (manualMode) {
+                btn.outerHTML = '<button type="button" data-trade-manual-btn="' + id + '" data-manual-state="1" onclick="rearmProtection(' + id + ', \'' + pairName + '\')" class="flex-1 font-mono-tech text-[9px] text-violet-600 border border-violet-400/30 rounded px-1.5 py-0.5 hover:bg-violet-400/10 transition-colors" title="Güncel fiyata göre yeni bir Kâr Al/Zarar Kes koyup normal yönetime geri döndürür">🔒 Korumaya Al</button>';
+            } else {
+                btn.outerHTML = '<button type="button" data-trade-manual-btn="' + id + '" data-manual-state="0" onclick="cancelPositionOrders(' + id + ', \'' + pairName + '\')" class="flex-1 font-mono-tech text-[9px] text-amber-600 border border-amber-400/30 rounded px-1.5 py-0.5 hover:bg-amber-400/10 transition-colors">🔓 Doğal Bırak</button>';
+            }
         }
 
         function renderSystemStatusBody(d) {
@@ -3430,7 +3471,7 @@ $openSettingsModal = !empty($successMessage) || !empty($errorMessage) || !empty(
                     + '</div>'
                     + '<div class="flex gap-1 mt-1">'
                     + '<button type="button" onclick="openLiveChart(' + id + ')" class="flex-1 font-mono-tech text-[9px] text-cyan-600 border border-cyan-400/30 rounded px-1.5 py-0.5 hover:bg-cyan-400/10 transition-colors">📈 Canlı İzle</button>'
-                    + '<button type="button" data-trade-manual-btn="' + id + '" onclick="cancelPositionOrders(' + id + ', \'' + (t.pair || '') + '\')" class="flex-1 font-mono-tech text-[9px] text-amber-600 border border-amber-400/30 rounded px-1.5 py-0.5 hover:bg-amber-400/10 transition-colors">🔓 Doğal Bırak</button>'
+                    + '<button type="button" data-trade-manual-btn="' + id + '" data-manual-state="0" onclick="cancelPositionOrders(' + id + ', \'' + (t.pair || '') + '\')" class="flex-1 font-mono-tech text-[9px] text-amber-600 border border-amber-400/30 rounded px-1.5 py-0.5 hover:bg-amber-400/10 transition-colors">🔓 Doğal Bırak</button>'
                     + '<button type="button" onclick="closePositionNow(' + id + ', \'' + (t.pair || '') + '\')" class="flex-1 font-mono-tech text-[9px] text-rose-600 border border-rose-400/30 rounded px-1.5 py-0.5 hover:bg-rose-400/10 transition-colors">✕ Şimdi Kapat</button>'
                     + '</div>'
                     + '<div data-trade-progress="' + id + '">'
@@ -3441,7 +3482,7 @@ $openSettingsModal = !empty($successMessage) || !empty($errorMessage) || !empty(
 
                 updateShieldBadge(id, t.trailing_stop_stage);
                 updateTakeProfitBadge(id, t.take_profit_removed);
-                updateManualModeUI(id, t.manual_mode);
+                updateManualModeUI(id, t.manual_mode, t.pair);
             });
 
             updateHuntsCountBadge();
@@ -3507,7 +3548,7 @@ $openSettingsModal = !empty($successMessage) || !empty($errorMessage) || !empty(
 
                 updateShieldBadge(id, t.trailing_stop_stage);
                 updateTakeProfitBadge(id, t.take_profit_removed);
-                updateManualModeUI(id, t.manual_mode);
+                updateManualModeUI(id, t.manual_mode, t.pair);
                 var slEl = document.querySelector('[data-trade-sl="' + id + '"]');
                 if (slEl && t.stop_loss_price !== null && t.stop_loss_price !== undefined) {
                     slEl.textContent = fmt$(parseFloat(t.stop_loss_price)).replace('$', '');

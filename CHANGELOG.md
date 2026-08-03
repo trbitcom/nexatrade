@@ -2,6 +2,11 @@
 
 Bu dosya NexaTrade'in sürüm geçmişini tutar. Format [Keep a Changelog](https://keepachangelog.com/tr/1.0.0/) ilkelerini, sürümleme ise [Semantic Versioning](https://semver.org/lang/tr/) (Major.Minor.Patch) kurallarını izler.
 
+## [1.91.0] - 2026-08-04
+
+### Yeni Özellik
+- ["Korumaya Al" eklendi] Doğal Bırak'ın tersi - GIGGLEUSDT #326 canlı deneyiminde fark edildi: Doğal Moddaki bir pozisyona geri dönüp tekrar koruma koyacak bir yol yoktu. Artık "Aktif Avlar" kartındaki buton, pozisyon Doğal Moddayken "🔒 Korumaya Al"a dönüşüyor - tıklanınca GÜNCEL fiyata göre (kullanıcının kendi Zarar Kes/Kâr Al yüzdeleriyle) yeni bir OCO konup pozisyon normal/otomatik yönetime geri döner. Yeni `AutoTradeController::rearmProtection()`, `ActiveTrade::disableManualMode()`, `POST /api/dashboard/rearm-protection`. Şema değişikliği yok, mevcut sütunlar kullanılıyor.
+
 ## [1.90.2] - 2026-08-04
 
 ### Arayüz (düzeltme)

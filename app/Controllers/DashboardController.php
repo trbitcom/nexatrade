@@ -1669,6 +1669,54 @@ final class DashboardController
         }
     }
 
+    // "Korumaya Al" (4 Ağustos, apiCancelPositionOrders()'in TERSİ): Doğal Moddaki bir pozisyona
+    // güncel fiyata göre yeni bir OCO koyup normal/otomatik yönetime geri döndürür - bkz.
+    // AutoTradeController::rearmProtection() ve ActiveTrade::disableManualMode() yorumu. Kullanıcının
+    // kendi risk profili ayarlarındaki (stop_loss_percent/take_profit_percent) yüzdeler kullanılır -
+    // Doğal Bırak'a giderken kaybolan hedefler yerine, "şu an tekrar korunsaydım nasıl korunurdum" sorusuna cevap
+    public function apiRearmProtection(): void
+    {
+        $userId = $this->requireAjaxAuth();
+        if ($userId === null) {
+            return;
+        }
+
+        header('Content-Type: application/json');
+
+        try {
+            $tradeId = (int) ($_POST['trade_id'] ?? 0);
+            $trade = ActiveTrade::findById($tradeId);
+
+            if ($trade === null || (int) $trade['user_id'] !== $userId || $trade['status'] !== 'open') {
+                echo json_encode(['success' => false, 'message' => 'Pozisyon bulunamadı veya zaten kapalı'], JSON_UNESCAPED_UNICODE);
+                return;
+            }
+
+            if ((int) ($trade['manual_mode'] ?? 0) !== 1) {
+                echo json_encode(['success' => false, 'message' => 'Bu pozisyon zaten korumalı'], JSON_UNESCAPED_UNICODE);
+                return;
+            }
+
+            $apiKeys = ApiKey::findByUser($userId);
+
+            if ($apiKeys === []) {
+                echo json_encode(['success' => false, 'message' => 'API anahtarı bulunamadı'], JSON_UNESCAPED_UNICODE);
+                return;
+            }
+
+            $binance = new BinanceService($apiKeys[0]['api_key'], $apiKeys[0]['secret_key']);
+            $stopLossPercent = (float) $apiKeys[0]['stop_loss_percent'];
+            $takeProfitPercent = (float) $apiKeys[0]['take_profit_percent'];
+
+            $result = (new AutoTradeController())->rearmProtection($binance, $trade, $stopLossPercent, $takeProfitPercent);
+
+            echo json_encode($result, JSON_UNESCAPED_UNICODE);
+        } catch (Throwable $e) {
+            error_log('[apiRearmProtection] ' . $e->getMessage());
+            echo json_encode(['success' => false, 'message' => 'Korumaya alınamadı'], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
     // "Sistem Durumu" widget'i: her otonom modulun gercekten canli olup olmadigini (son calisma
     // zamani), bu kullanicinin devre kesici durumunu ve log dosyalarindaki son kritik hatalari tek
     // istekte doner - onceden bunlarin hepsi cPanel Terminal'e girip elle log/DB sorgulamayi

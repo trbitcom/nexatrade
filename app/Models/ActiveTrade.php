@@ -409,7 +409,9 @@ final class ActiveTrade
     // Dogal Mod: musteri "Emirleri Iptal Et" ile koruma emrini BILEREK iptal etti - bkz. database.sql
     // migrasyon yorumu. Cagiran taraf (DashboardController::apiCancelPositionOrders) Binance'teki
     // OCO/tekil Zarar Kes emrini BURADAN ONCE iptal etmis olmali - bu metod sadece o gercegi DB'ye
-    // yansitir (clearOcoReference ile AYNI temizlik + manual_mode=1). TEK YONLUDUR, geri alinamaz
+    // yansitir (clearOcoReference ile AYNI temizlik + manual_mode=1). 4 Agustos'ta artik GERI
+    // ALINABILIR - bkz. disableManualMode() (musteri talebi: GIGGLEUSDT #326 canli deneyiminde
+    // Dogal Moddaki bir pozisyona geri donup tekrar koruma koyacak bir yol olmadigi fark edildi)
     public static function enableManualMode(int $tradeId): void
     {
         $pdo = Database::getInstance();
@@ -420,6 +422,38 @@ final class ActiveTrade
              WHERE id = :id'
         );
         $stmt->execute([':id' => $tradeId]);
+    }
+
+    // "Korumaya Al" (4 Agustos, enableManualMode()'un tersi): Dogal Moddaki bir pozisyona GUNCEL
+    // fiyata gore yeni bir OCO kondu - bkz. DashboardController::apiRearmProtection(). Cagiran
+    // taraf Binance'te OCO'yu BURADAN ONCE basariyla yerlestirmis olmali. trailing_stop_stage/
+    // highest_price_seen SIFIRLANIR (Dogal Mod suresince trailing hic calismadigi icin eski
+    // deger anlamsiz/gecersiz kalirdi) - bu, fiyat acisindan YENI bir koruma donemi baslangicidir
+    public static function disableManualMode(
+        int $tradeId,
+        float $newTakeProfitPrice,
+        float $newStopLossPrice,
+        int $ocoOrderListId,
+        ?int $takeProfitOrderId,
+        ?int $stopLossOrderId
+    ): void {
+        $pdo = Database::getInstance();
+
+        $stmt = $pdo->prepare(
+            'UPDATE active_trades
+             SET manual_mode = 0, take_profit_price = :tp_price, stop_loss_price = :sl_price,
+                 oco_order_list_id = :oco_id, take_profit_order_id = :tp_order_id, stop_loss_order_id = :sl_order_id,
+                 trailing_stop_stage = 0, highest_price_seen = NULL, unprotected_alert_sent_at = NULL
+             WHERE id = :id'
+        );
+        $stmt->execute([
+            ':tp_price' => $newTakeProfitPrice,
+            ':sl_price' => $newStopLossPrice,
+            ':oco_id' => $ocoOrderListId,
+            ':tp_order_id' => $takeProfitOrderId,
+            ':sl_order_id' => $stopLossOrderId,
+            ':id' => $tradeId,
+        ]);
     }
 
     // DCA alimi gerceklesti ama eski OCO iptal EDILEMEDI durumunda kullanilir: eski OCO hala
