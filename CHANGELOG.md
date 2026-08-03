@@ -2,6 +2,11 @@
 
 Bu dosya NexaTrade'in sürüm geçmişini tutar. Format [Keep a Changelog](https://keepachangelog.com/tr/1.0.0/) ilkelerini, sürümleme ise [Semantic Versioning](https://semver.org/lang/tr/) (Major.Minor.Patch) kurallarını izler.
 
+## [1.89.2] - 2026-08-04
+
+### Hata Düzeltme (Kritik)
+- [AutoTradeController] Doğal Bırak (`apiCancelPositionOrders`) ile mutabakat döngüsü (`reconcileActiveTradesInternal`) arasında yarış durumu tespit edildi - canlı olayda görüldü (AVAXUSDT #333): OCO Binance'te iptal edildikten sonra, `manual_mode=1` DB'ye yazılana kadarki kısa pencerede mutabakat turu araya girerse, iptal edilmiş (dolmamış) OCO'yu "hangi bacak gerçekleşti belirlenemedi" fallback'ine düşürüp pozisyonu coin GERÇEKTE SATILMAMIŞKEN "kapalı" işaretliyordu - hiçbir satış kaydı/PNL oluşmadan. Artık bu fallback'e düşmeden önce TAZE veriyle `manual_mode` tekrar kontrol ediliyor - yarış durumu tespit edilirse pozisyon AÇIK ve manuel modda bırakılıyor, yanlışlıkla kapatılmıyor.
+
 ## [1.89.1] - 2026-08-02
 
 ### Performans

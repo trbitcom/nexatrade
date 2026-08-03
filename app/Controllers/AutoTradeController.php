@@ -2636,6 +2636,25 @@ final class AutoTradeController
                     // OCO tamamlandi ama hangi bacagin gerceklestigi belirlenemedi (ör. ikisi de iptal/expired)
                     // VE Binance islem gecmisinde de eslesen bir fill bulunamadi (ör. musteri manuel
                     // iptal edip kendi emrini girmis olabilir - bkz. TIAUSDT RCA)
+                    //
+                    // 4 Agustos'ta eklendi (AVAXUSDT #333 canli olayi): Dogal Birak (manual_mode) ile
+                    // BU dongu arasinda YARIS DURUMU tespit edildi - apiCancelPositionOrders() ONCE
+                    // Binance'teki OCO'yu iptal edip SONRA manual_mode=1 yaziyor (bkz. o fonksiyonun
+                    // yorumu), bu iki adim arasindaki kisa pencerede bu dongu eski (henuz manual_mode=0)
+                    // satiri okuyup OCO'nun ALL_DONE (iptal edilmis, DOLMAMIS) oldugunu goruyor, hicbir
+                    // bacak FILLED olmadigi icin buraya duserdi ve pozisyonu coin GERCEKTE SATILMAMISKEN
+                    // "kapali" isaretlerdi (hicbir satis kaydi/PNL olusmadan) - musterinin coin'i
+                    // Binance'te sessizce takipsiz kalirdi. Kapatmadan ONCE TAZE veriyle manual_mode
+                    // kontrol edilir - eger bu arada 1 olduysa bu YARIS DURUMUdur, pozisyon ACIK ve
+                    // manuel modda kalmaya devam eder (coin'ler hala elde, satis YOK)
+                    $freshTrade = ActiveTrade::findById($tradeId);
+
+                    if ($freshTrade !== null && (int) ($freshTrade['manual_mode'] ?? 0) === 1) {
+                        ActiveTrade::clearOcoReference($tradeId);
+                        $this->logAutomationError("Pozisyon #{$tradeId} ({$pair}): Doğal Bırak ile mutabakat arasında yarış durumu tespit edildi, pozisyon AÇIK ve manuel modda bırakıldı (satış YAPILMADI).");
+                        continue;
+                    }
+
                     ActiveTrade::markClosed($tradeId, 'closed_manual');
                     $this->logAutomationError("Pozisyon #{$tradeId} ({$pair}) OCO tamamlandı ama gerçekleşen bacak belirlenemedi (myTrades yedeği de sonuçsuz), manuel incelemeye alındı.");
                     continue;
