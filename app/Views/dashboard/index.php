@@ -174,7 +174,7 @@ $openSettingsModal = !empty($successMessage) || !empty($errorMessage) || !empty(
                kalır): Haberler/Yeni Listelenen (üst satır) biraz kısaltılıp Aktif Avlar'ın
                bulunduğu alt satır büyütüldü - birden fazla açık pozisyon olduğunda kaydırmadan
                görülebilsin diye */
-            grid-template-rows: 0.75fr 1.25fr;
+            grid-template-rows: 0.6fr 1.4fr;
             grid-template-areas:
                 "chart radar news listings"
                 "technical orders hunts hunts";
