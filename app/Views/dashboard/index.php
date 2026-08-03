@@ -169,7 +169,12 @@ $openSettingsModal = !empty($successMessage) || !empty($errorMessage) || !empty(
         .terminal-grid {
             display: grid;
             grid-template-columns: 1.15fr 1fr 1fr 1fr;
-            grid-template-rows: 1fr 1fr;
+            /* 4 Ağustos'ta ayarlandı (müşteri talebi, SADECE web/masaüstü - mobilde aşağıdaki
+               @media(max-width:1023px) kuralı display:flex'e geçtiği için bu satır orada etkisiz
+               kalır): Haberler/Yeni Listelenen (üst satır) biraz kısaltılıp Aktif Avlar'ın
+               bulunduğu alt satır büyütüldü - birden fazla açık pozisyon olduğunda kaydırmadan
+               görülebilsin diye */
+            grid-template-rows: 0.75fr 1.25fr;
             grid-template-areas:
                 "chart radar news listings"
                 "technical orders hunts hunts";

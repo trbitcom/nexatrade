@@ -2,6 +2,11 @@
 
 Bu dosya NexaTrade'in sürüm geçmişini tutar. Format [Keep a Changelog](https://keepachangelog.com/tr/1.0.0/) ilkelerini, sürümleme ise [Semantic Versioning](https://semver.org/lang/tr/) (Major.Minor.Patch) kurallarını izler.
 
+## [1.90.2] - 2026-08-04
+
+### Arayüz
+- [dashboard/index.php] Masaüstü grid oranı ayarlandı (`grid-template-rows: 1fr 1fr` → `0.75fr 1.25fr`) - müşteri talebi: Haberler/Yeni Listelenen (üst satır) biraz kısaltıldı, Aktif Avlar'ın bulunduğu alt satır büyütüldü, birden fazla açık pozisyon kaydırmadan görülebilsin diye. Sadece web/masaüstü - mobilde ayrı bir grid kuralı zaten devrede, bu değişiklik orada etkisiz.
+
 ## [1.90.1] - 2026-08-04
 
 ### Hata Düzeltme
