@@ -4,6 +4,10 @@ Bu dosya NexaTrade'in sürüm geçmişini tutar. Format [Keep a Changelog](https
 
 ## [1.90.2] - 2026-08-04
 
+### Arayüz (düzeltme)
+- [dashboard/index.php] Bir önceki satır-oranı yaklaşımı (0.6fr/1.4fr) Aktif Avlar'ı büyütürken AYNI satırdaki Teknik Analiz Özeti/Son İşlemler'i de istenmeden büyütüyordu - müşteri geri bildirdi. Grid yeniden yapılandırıldı: Aktif Avlar artık kendi sütununu (en sağ) baştan sona kaplıyor, diğer panellerin boyutuna dokunmadan çok daha fazla dikey alan kazanıyor. Haberler/Yeni Listelenen üst-alt sıralandı (yan yana değil).
+
+
 ### Arayüz
 - [dashboard/index.php] Masaüstü grid oranı ayarlandı (`grid-template-rows: 1fr 1fr` → `0.75fr 1.25fr`) - müşteri talebi: Haberler/Yeni Listelenen (üst satır) biraz kısaltıldı, Aktif Avlar'ın bulunduğu alt satır büyütüldü, birden fazla açık pozisyon kaydırmadan görülebilsin diye. Sadece web/masaüstü - mobilde ayrı bir grid kuralı zaten devrede, bu değişiklik orada etkisiz.
 

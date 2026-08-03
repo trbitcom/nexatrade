@@ -169,15 +169,18 @@ $openSettingsModal = !empty($successMessage) || !empty($errorMessage) || !empty(
         .terminal-grid {
             display: grid;
             grid-template-columns: 1.15fr 1fr 1fr 1fr;
-            /* 4 Ağustos'ta ayarlandı (müşteri talebi, SADECE web/masaüstü - mobilde aşağıdaki
-               @media(max-width:1023px) kuralı display:flex'e geçtiği için bu satır orada etkisiz
-               kalır): Haberler/Yeni Listelenen (üst satır) biraz kısaltılıp Aktif Avlar'ın
-               bulunduğu alt satır büyütüldü - birden fazla açık pozisyon olduğunda kaydırmadan
-               görülebilsin diye */
-            grid-template-rows: 0.6fr 1.4fr;
+            grid-template-rows: 1fr 1fr;
+            /* 4 Ağustos'ta değiştirildi (müşteri talebi, SADECE web/masaüstü - mobilde aşağıdaki
+               @media(max-width:1023px) kuralı display:flex'e geçtiği için bu kural orada etkisiz
+               kalır): satır oranını değiştirmek (0.6fr/1.4fr) Aktif Avlar'ı büyütürken AYNI satırdaki
+               Teknik Analiz Özeti/Son İşlemler'i de istenmeden büyütüyordu. Bunun yerine Aktif Avlar
+               artık kendi SÜTUNUNU tamamen kaplıyor (iki satır da) - diğer panellerin boyutuna hiç
+               dokunmadan çok daha fazla dikey alan kazanıyor. Haberler/Yeni Listelenen artık üst-alt
+               (yan yana değil) - Yeni Listelenen'in eski yerini Aktif Avlar'a bırakır
+            */
             grid-template-areas:
-                "chart radar news listings"
-                "technical orders hunts hunts";
+                "chart radar news hunts"
+                "technical orders listings hunts";
         }
 
         .area-chart { grid-area: chart; }
