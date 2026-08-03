@@ -2,6 +2,11 @@
 
 Bu dosya NexaTrade'in sürüm geçmişini tutar. Format [Keep a Changelog](https://keepachangelog.com/tr/1.0.0/) ilkelerini, sürümleme ise [Semantic Versioning](https://semver.org/lang/tr/) (Major.Minor.Patch) kurallarını izler.
 
+## [1.89.3] - 2026-08-04
+
+### Hata Düzeltme
+- [AutoTradeController] Anti-FOMO Freni (15dk RSI) reddi loglanırken `AiIntervention::record()` çağrısında tanımsız `$rsi15mCeiling` değişkenine atıf yapılıyordu (kopyala-yapıştır hatası, muhtemelen eşik sabiti isim değiştirdiğinde unutulmuş) - her tetiklenişinde PHP Warning basıyordu, bugünkü eşik sıkılaştırmasıyla (v1.89.0) daha sık görünür hale geldi. `self::PULLBACK_RSI_OVERBOUGHT_THRESHOLD` ile değiştirildi.
+
 ## [1.89.2] - 2026-08-04
 
 ### Hata Düzeltme (Kritik)

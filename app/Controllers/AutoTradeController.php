@@ -1142,7 +1142,7 @@ final class AutoTradeController
                             sprintf(
                                 '15 dakikalık RSI (%.1f) aşırı alım bölgesinde (eşik %.1f) olduğu için "tepeden alma" riskine karşı işlem iptal edildi.',
                                 $candidateRsi15m,
-                                $rsi15mCeiling
+                                self::PULLBACK_RSI_OVERBOUGHT_THRESHOLD
                             )
                         );
 
