@@ -2547,12 +2547,33 @@ $openSettingsModal = !empty($successMessage) || !empty($errorMessage) || !empty(
         // "Korumaya Al" (4 Ağustos): cancelPositionOrders()'in TERSİ - Doğal Moddaki bir pozisyona
         // GÜNCEL fiyata göre yeni bir Kâr Al/Zarar Kes koyup normal/otomatik yönetime geri döndürür
         // (bkz. AutoTradeController::rearmProtection()). Hedefler ESKİ giriş fiyatından değil ŞU ANKİ
-        // fiyattan hesaplanır - Doğal Moddayken fiyat çok hareket etmiş olabilir
+        // fiyattan hesaplanır - Doğal Moddayken fiyat çok hareket etmiş olabilir. Müşteri talebi
+        // (4 Ağustos): hesabın varsayılan SL/TP yüzdesini körü körüne kullanmak yerine, her seferinde
+        // kendi yüzdesini girebilsin - varsayılan asimetri (dar Kâr Al/geniş Zarar Kes) her pozisyon
+        // için doğru olmayabilir
         function rearmProtection(tradeId, pair) {
-            if (!confirm(pair + ' için güncel fiyata göre yeni bir Kâr Al/Zarar Kes emri koyup normal yönetime geri döndürmek istediğine emin misin?')) return;
+            var slInput = prompt(pair + ' için GÜNCEL fiyattan ne kadar AŞAĞIYA Zarar Kes koyalım? (%, örn: 5)', '5');
+            if (slInput === null) return;
+            var slPercent = parseFloat(slInput);
+            if (isNaN(slPercent) || slPercent <= 0 || slPercent > 50) {
+                showToast('Geçersiz Zarar Kes yüzdesi (0-50 arası olmalı)', false);
+                return;
+            }
+
+            var tpInput = prompt(pair + ' için GÜNCEL fiyattan ne kadar YUKARIYA Kâr Al koyalım? (%, örn: 5)', '5');
+            if (tpInput === null) return;
+            var tpPercent = parseFloat(tpInput);
+            if (isNaN(tpPercent) || tpPercent <= 0 || tpPercent > 100) {
+                showToast('Geçersiz Kâr Al yüzdesi (0-100 arası olmalı)', false);
+                return;
+            }
+
+            if (!confirm(pair + ' için güncel fiyattan -%' + slPercent + ' Zarar Kes / +%' + tpPercent + ' Kâr Al ile korumaya almak istediğine emin misin?')) return;
 
             var formData = new URLSearchParams();
             formData.append('trade_id', tradeId);
+            formData.append('stop_loss_percent', String(slPercent));
+            formData.append('take_profit_percent', String(tpPercent));
 
             fetch(_BASE + '/api/dashboard/rearm-protection', {
                 method: 'POST',

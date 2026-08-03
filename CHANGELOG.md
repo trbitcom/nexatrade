@@ -2,6 +2,11 @@
 
 Bu dosya NexaTrade'in sürüm geçmişini tutar. Format [Keep a Changelog](https://keepachangelog.com/tr/1.0.0/) ilkelerini, sürümleme ise [Semantic Versioning](https://semver.org/lang/tr/) (Major.Minor.Patch) kurallarını izler.
 
+## [1.91.1] - 2026-08-04
+
+### İyileştirme
+- ["Korumaya Al" artık yüzde soruyor] Önceki sürüm hesabın varsayılan Zarar Kes/Kâr Al yüzdesini (körü körüne, sabah bulduğumuz dar-Kâr-Al/geniş-Zarar-Kes asimetrisiyle) kullanıyordu - müşteri geri bildirdi. Artık butona basınca hem Zarar Kes hem Kâr Al için kendi yüzdesi soruluyor, sunucu tarafında da (0, 50/100] aralığıyla doğrulanıyor - istemci kontrolüne güvenilmiyor, gerçek para ile emir veriliyor.
+
 ## [1.91.0] - 2026-08-04
 
 ### Yeni Özellik

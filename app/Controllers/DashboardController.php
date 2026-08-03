@@ -1704,9 +1704,22 @@ final class DashboardController
                 return;
             }
 
+            // Musteri talebi (4 Agustos): hesabin varsayilan SL/TP yuzdesini korurken (fallback),
+            // musteri her seferinde kendi yuzdesini de girebilir - dashboard'daki prompt() bunu
+            // gonderir. Sunucu tarafinda da makul bir aralikla (0 haric, 50/100 ust siniri) dogrulanir -
+            // istemci tarafi kontrolune GUVENILMEZ, gercek para ile emir veriliyor
+            $requestedStopLoss = isset($_POST['stop_loss_percent']) ? (float) $_POST['stop_loss_percent'] : null;
+            $requestedTakeProfit = isset($_POST['take_profit_percent']) ? (float) $_POST['take_profit_percent'] : null;
+
+            $stopLossPercent = ($requestedStopLoss !== null && $requestedStopLoss > 0 && $requestedStopLoss <= 50)
+                ? $requestedStopLoss
+                : (float) $apiKeys[0]['stop_loss_percent'];
+
+            $takeProfitPercent = ($requestedTakeProfit !== null && $requestedTakeProfit > 0 && $requestedTakeProfit <= 100)
+                ? $requestedTakeProfit
+                : (float) $apiKeys[0]['take_profit_percent'];
+
             $binance = new BinanceService($apiKeys[0]['api_key'], $apiKeys[0]['secret_key']);
-            $stopLossPercent = (float) $apiKeys[0]['stop_loss_percent'];
-            $takeProfitPercent = (float) $apiKeys[0]['take_profit_percent'];
 
             $result = (new AutoTradeController())->rearmProtection($binance, $trade, $stopLossPercent, $takeProfitPercent);
 
