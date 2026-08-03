@@ -2,6 +2,11 @@
 
 Bu dosya NexaTrade'in sürüm geçmişini tutar. Format [Keep a Changelog](https://keepachangelog.com/tr/1.0.0/) ilkelerini, sürümleme ise [Semantic Versioning](https://semver.org/lang/tr/) (Major.Minor.Patch) kurallarını izler.
 
+## [1.90.0] - 2026-08-04
+
+### Yeni Özellik
+- [FuturesTradingService] Futures (KISA) modülü artık spot ile AYNI `decision_motor` ayarını paylaşıyor - müşteri talebi: "AI'a gerek yok, motor karar versin". `decision_motor='deterministic'` iken GPT/SentimentService'e hiç dokunulmadan `TechnicalScoreEngine` (MarketScanner::calculateTechnicalScore ile) kullanılıyor - bu motor zaten çift yönlü (düşen fiyat/MA20, negatif MACD, azalan hacim için puanı düşürüyor), yani düşük skor gerçek bir "ayı" okuması, ayrı bir bearish motor yazmaya gerek kalmadı. `decision_motor='ai'` iken davranış AYNEN korunuyor (SentimentService).
+
 ## [1.89.3] - 2026-08-04
 
 ### Hata Düzeltme

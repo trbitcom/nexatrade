@@ -142,8 +142,49 @@ final class FuturesTradingService
             }
         }
 
-        $sentiment = new SentimentService();
-        $analyses = $sentiment->analyzeMany($candidateSymbols, $marketDataMap);
+        // Deterministik Motor (4 Agustos'ta eklendi): AutoTradeController'daki AYNI 'decision_motor'
+        // Setting'i paylasilir - musteri talebi "AI'a gerek yok, motor karar versin" (futures da spot
+        // gibi GPT'siz calissin). TechnicalScoreEngine (MarketScanner::calculateTechnicalScore ile
+        // sarilir) ZATEN CIFT YONLU: dusen fiyat/MA20, negatif MACD, azalan hacim gibi HER bearish
+        // sinyal icin puani 50'den DUSURUR - yani DUSUK skor GERCEK bir "ayi" okumasidir, sadece
+        // "boga sinyali yok" degil. Ayri bir bearish motor yazmaya gerek kalmadan AYNI fonksiyon short
+        // adaylari icin de kullanilir - long'da YUKSEK skor arandigi gibi burada DUSUK skor aranir.
+        // $analyses'in sekli (symbol/score/reason) SentimentService::analyzeMany() ile AYNI tutulur
+        // ki asagidaki BTC filtresi/RSI/hacim dongusu HICBIR DEGISIKLIK gerektirmeden calismaya devam etsin
+        if ($this->getDecisionMotor() === 'deterministic') {
+            $analyses = [];
+
+            foreach ($candidateSymbols as $symbol) {
+                $priceChangePercent = (float) ($marketDataMap[$symbol]['priceChangePercent'] ?? 0.0);
+
+                try {
+                    $technicalScore = $scanner->calculateTechnicalScore($symbol, $priceChangePercent, null);
+                } catch (Throwable $e) {
+                    $technicalScore = null;
+                }
+
+                if ($technicalScore === null) {
+                    continue;
+                }
+
+                $analyses[] = [
+                    'symbol' => $symbol,
+                    'score' => (int) $technicalScore['score'],
+                    'reason' => (string) $technicalScore['reason'],
+                ];
+
+                $this->logFutures(sprintf(
+                    'Deterministik Motor: %s için skor %d - %s',
+                    $symbol,
+                    $technicalScore['score'],
+                    $technicalScore['reason']
+                ));
+            }
+        } else {
+            $sentiment = new SentimentService();
+            $analyses = $sentiment->analyzeMany($candidateSymbols, $marketDataMap);
+        }
+
         usort($analyses, static fn (array $a, array $b): int => $a['score'] <=> $b['score']);
 
         $btcChangePercent = $scanner->getBtcPriceChangePercent();
@@ -234,6 +275,21 @@ final class FuturesTradingService
         }
 
         return (time() - (int) $lastScanAt) >= self::SCAN_INTERVAL_SECONDS;
+    }
+
+    // AutoTradeController::getDecisionMotor() ile BIREBIR AYNI desen/Setting anahtari - 4 Agustos'ta
+    // eklendi, futures'in da spot gibi GPT'siz (deterministik) calisabilmesi icin. Taninmayan/bos bir
+    // deger fail-open GUVENLI VARSAYILANA (ai, mevcut/bilinen davranis) duser
+    private function getDecisionMotor(): string
+    {
+        $motor = Setting::get('decision_motor');
+
+        if ($motor === null) {
+            $config = require __DIR__ . '/../../config/app.php';
+            $motor = (string) ($config['decision_motor'] ?? 'ai');
+        }
+
+        return $motor === 'deterministic' ? 'deterministic' : 'ai';
     }
 
     private function shortForAllUsers(string $pair, int $score, ?string $strategyBucket = null): int
