@@ -2,6 +2,11 @@
 
 Bu dosya NexaTrade'in sürüm geçmişini tutar. Format [Keep a Changelog](https://keepachangelog.com/tr/1.0.0/) ilkelerini, sürümleme ise [Semantic Versioning](https://semver.org/lang/tr/) (Major.Minor.Patch) kurallarını izler.
 
+## [1.91.2] - 2026-08-04
+
+### Hata Düzeltme (Kritik)
+- [ActiveTrade::disableManualMode] "Korumaya Al" `is_sl_tightened` bayrağını 1'e çekmiyordu - canlı olayda tespit edildi (GIGGLEUSDT #326): saatler/günler önce açılmış eski bir pozisyonda bu bayrak hâlâ 0 kalabiliyordu, normal yönetime dönünce Fitil Koruması (`tightenStopLossIfEligible`) ANINDA devreye girip Korumaya Al'in az önce kurduğu OCO'yu ESKİ giriş fiyatından hesapladığı bir Zarar Kes'le değiştirmeye çalıştı, Binance reddetti, Acil Durum Protokolü pozisyonu istenmeden anında piyasada kapattı ($39.48, kullanıcının seçtiği hedeflere hiç ulaşmadan). Artık `disableManualMode()` `is_sl_tightened = 1` de yazıyor - Korumaya Al'in kurduğu hedefler nihai sayılır, fitil koruması tekrar sıkılaştırmaya çalışmaz.
+
 ## [1.91.1] - 2026-08-04
 
 ### İyileştirme
