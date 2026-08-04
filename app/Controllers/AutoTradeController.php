@@ -1421,11 +1421,16 @@ final class AutoTradeController
         return (time() - (int) $lastRunAt) >= self::POSITION_MONITOR_INTERVAL_SECONDS;
     }
 
-    // Acik pozisyonlardaki BENZERSIZ sembolleri TEK TEK (sembol basina TEK OpenAI cagrisi) puanlar -
-    // ayni sembolu tutan birden fazla kullanici varsa cagri PAYLASILIR, tekrar tekrar sorulmaz.
-    // Basarisiz olan bir sembol icin null doner - cagiran taraf bu durumda o pozisyona DOKUNMAZ
-    // (fail-safe: API hatasi asla yanlislikla bir pozisyonu kapatmaya yol acmamali)
-    // @return array<string, int|null> sembol => AI skoru (1-100) | null (hata/veri yok)
+    // Acik pozisyonlardaki BENZERSIZ sembolleri TEK TEK puanlar - ayni sembolu tutan birden fazla
+    // kullanici varsa cagri PAYLASILIR, tekrar tekrar sorulmaz. Basarisiz olan bir sembol icin null
+    // doner - cagiran taraf bu durumda o pozisyona DOKUNMAZ (fail-safe: API hatasi asla yanlislikla
+    // bir pozisyonu kapatmaya yol acmamali).
+    // decision_motor='deterministic' iken 4 Agustos'ta duzeltildi: bu fonksiyon SentimentService/GPT'yi
+    // KOSULSUZ cagiriyordu - giris kararinda GPT tamamen devre disi birakilmis olsa bile acik pozisyon
+    // izlemede hala gizlice cagriliyordu. Artik deterministic modda buildTechnicalContext() (ayni
+    // GPT-siz TechnicalScoreEngine, 1-100 olcek) kullanilir - EARLY_EXIT_AI_SCORE_THRESHOLD ile
+    // karsilastirma ayni kalir, sadece skorun kaynagi degisir
+    // @return array<string, int|null> sembol => skor (1-100) | null (hata/veri yok)
     private function scoreOpenPositionSymbols(array $openTrades): array
     {
         $uniquePairs = array_values(array_unique(array_map(
@@ -1434,15 +1439,26 @@ final class AutoTradeController
         )));
 
         $scores = [];
-        $sentiment = new SentimentService();
+        $useDeterministic = $this->getDecisionMotor() === 'deterministic';
+        $sentiment = $useDeterministic ? null : new SentimentService();
 
         foreach ($uniquePairs as $pair) {
             try {
-                $analysis = $sentiment->analyze($pair);
-                $scores[$pair] = (int) $analysis['score'];
+                if ($useDeterministic) {
+                    $technicalContext = $this->buildTechnicalContext($pair);
+
+                    if ($technicalContext === null) {
+                        throw new RuntimeException('teknik skor hesaplanamadı');
+                    }
+
+                    $scores[$pair] = (int) $technicalContext['score'];
+                } else {
+                    $analysis = $sentiment->analyze($pair);
+                    $scores[$pair] = (int) $analysis['score'];
+                }
             } catch (Throwable $e) {
                 $scores[$pair] = null;
-                $this->logAutomationError("Pozisyon izleme: {$pair} için AI skoru alınamadı - " . $e->getMessage());
+                $this->logAutomationError("Pozisyon izleme: {$pair} için skor alınamadı - " . $e->getMessage());
             }
         }
 

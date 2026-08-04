@@ -2,6 +2,11 @@
 
 Bu dosya NexaTrade'in sürüm geçmişini tutar. Format [Keep a Changelog](https://keepachangelog.com/tr/1.0.0/) ilkelerini, sürümleme ise [Semantic Versioning](https://semver.org/lang/tr/) (Major.Minor.Patch) kurallarını izler.
 
+## [1.93.2] - 2026-08-04
+
+### Hata Düzeltme
+- [AutoTradeController::scoreOpenPositionSymbols] "Dinamik Kaçış Protokolü" (açık pozisyonların AI skorunu periyodik yeniden kontrolü) `decision_motor` ayarına hiç bakmıyordu - deterministic modda giriş kararı için GPT tamamen devre dışı bırakılmış olsa bile, bu mekanizma her seferinde gerçek SentimentService/OpenAI çağrısı yapmaya devam ediyordu. Artık deterministic modda GPT'siz `buildTechnicalContext()` (aynı TechnicalScoreEngine, aynı 1-100 ölçek) kullanılıyor - futures tarafında 26 Temmuz'da (v1.90.0) yapılan aynı düzeltmenin spot karşılığı.
+
 ## [1.93.1] - 2026-08-04
 
 ### Hata Düzeltme
