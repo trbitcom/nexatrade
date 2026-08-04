@@ -1944,6 +1944,11 @@ final class AutoTradeController
         ?float $entryRsi1h = null,
         ?float $entryRsi15m = null
     ): void {
+        // Golge Modu (4 Ağustos, VICUSDT #370 canlı olayından sonra): bkz. calculateEntryMomentum()
+        // yorumu - aşağıdaki HİÇBİR karara etkisi yok, sadece ActiveTrade::create()'e taşınıp
+        // pasif olarak kaydedilir
+        $entryMomentum = $this->calculateEntryMomentum($binance, $pair);
+
         try {
             $filters = $binance->getSymbolFilters($pair);
             $stepSize = $filters['step_size'] > 0 ? $filters['step_size'] : 0.0001;
@@ -2017,6 +2022,8 @@ final class AutoTradeController
                 'is_sl_tightened' => 0,
                 'entry_rsi_1h' => $entryRsi1h,
                 'entry_rsi_15m' => $entryRsi15m,
+                'price_30m_delta_percent' => $entryMomentum['price_30m_delta_percent'],
+                'rsi_30m_delta' => $entryMomentum['rsi_30m_delta'],
             ]);
 
             // 29 Temmuz'da eklendi: Acil Durum Protokolü (Triage) - "relationship of the prices"
@@ -2173,6 +2180,8 @@ final class AutoTradeController
             'is_sl_tightened' => 0,
             'entry_rsi_1h' => $entryRsi1h,
             'entry_rsi_15m' => $entryRsi15m,
+            'price_30m_delta_percent' => $entryMomentum['price_30m_delta_percent'],
+            'rsi_30m_delta' => $entryMomentum['rsi_30m_delta'],
         ]);
 
         ActiveTrade::addFillRecord($activeTradeId, $buyOrderId, $ocoQuantity, $entryPrice, 'initial');
@@ -2196,6 +2205,84 @@ final class AutoTradeController
         }
 
         $this->notifyCustomer($userId, $entryMessage);
+    }
+
+    // --- Gölge Modu (Shadow Mode) - Giriş Momentum Hızı (4 Ağustos) ---
+    // VICUSDT #370 canlı olayında bulundu: giriş öncesi 30 dakikada fiyat zaten %10 düşmüştü, ama
+    // bot bunu "RSI aşırı alımdan sağlıklıya döndü" diye okudu - RSI'nin düşmesi aslında sakinleşme
+    // değil ÇÖKÜŞ'tü ("Düşen Bıçağı Yakalama" tuzağı). entry_rsi_1h/15m bir "an"ı (anlık değeri)
+    // kaydeder, bu ikisi ise giriş ÖNCESİ son 30 dakikanın DEĞİŞİM HIZINI ölçer - TAMAMEN PASİF,
+    // hiçbir if/else/skor bu değerlere bakmaz, sadece ActiveTrade::create()'e taşınıp DB'ye yazılır.
+    // Yeterli veri (20+ işlem) biriktikten sonra gerçek soruya cevap aranabilir: "hızlı düşüşün
+    // ortasında (rsi_30m_delta çok negatif) girilen işlemler daha mı çok kaybediyor?"
+    // Binance'e ekstra 2 istek (1m+15m klines) gerektirir - başarısız olursa (ağ hatası, yeni
+    // listelenen coin vb.) sessizce NULL döner, ASLA alımı/korumayı engellemez/geciktirmez
+    private function calculateEntryMomentum(BinanceService $binance, string $pair): array
+    {
+        $result = ['price_30m_delta_percent' => null, 'rsi_30m_delta' => null];
+
+        try {
+            $klines1m = $binance->getKlines($pair, '1m', 31);
+
+            if (count($klines1m) >= 2) {
+                $priceNow = $klines1m[count($klines1m) - 1]['close'];
+                $price30mAgo = $klines1m[0]['close'];
+
+                if ($price30mAgo > 0) {
+                    $result['price_30m_delta_percent'] = round((($priceNow - $price30mAgo) / $price30mAgo) * 100, 2);
+                }
+            }
+        } catch (Throwable $e) {
+            // fail-open: sessizce NULL kalir
+        }
+
+        try {
+            $klines15m = $binance->getKlines($pair, '15m', 20);
+            $closes15m = array_map(static fn (array $k): float => (float) $k['close'], $klines15m);
+
+            $rsiNow = $this->simpleRsiAt($closes15m, count($closes15m) - 1);
+            $rsi30mAgo = $this->simpleRsiAt($closes15m, count($closes15m) - 1 - 2);
+
+            if ($rsiNow !== null && $rsi30mAgo !== null) {
+                $result['rsi_30m_delta'] = round($rsiNow - $rsi30mAgo, 2);
+            }
+        } catch (Throwable $e) {
+            // fail-open: sessizce NULL kalir
+        }
+
+        return $result;
+    }
+
+    // calculateEntryMomentum()'un TEK kullanıcısı - MarketScanner/TechnicalScoreEngine'in kendi RSI
+    // hesaplamalarından KASITLI olarak İZOLE (o dosyalara hiç dokunulmadı, Gölge Modu onlardan
+    // TAMAMEN bağımsız çalışır). $index'teki kapanışı SON nokta sayıp geriye doğru $period kadar
+    // basit (Wilder olmayan) RSI hesaplar - yeterli veri yoksa (index < period) null döner
+    private function simpleRsiAt(array $closes, int $index, int $period = 14): ?float
+    {
+        if ($index < $period) {
+            return null;
+        }
+
+        $gains = 0.0;
+        $losses = 0.0;
+
+        for ($i = $index - $period + 1; $i <= $index; $i++) {
+            $change = $closes[$i] - $closes[$i - 1];
+
+            if ($change > 0) {
+                $gains += $change;
+            } else {
+                $losses += abs($change);
+            }
+        }
+
+        if ($losses == 0.0) {
+            return 100.0;
+        }
+
+        $rs = ($gains / $period) / ($losses / $period);
+
+        return 100 - (100 / (1 + $rs));
     }
 
     // "Korumaya Al" (4 Agustos): Dogal Moddaki bir pozisyona GUNCEL fiyata gore yeni bir OCO koyar -

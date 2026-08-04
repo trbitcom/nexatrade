@@ -2,6 +2,11 @@
 
 Bu dosya NexaTrade'in sürüm geçmişini tutar. Format [Keep a Changelog](https://keepachangelog.com/tr/1.0.0/) ilkelerini, sürümleme ise [Semantic Versioning](https://semver.org/lang/tr/) (Major.Minor.Patch) kurallarını izler.
 
+## [1.93.0] - 2026-08-04
+
+### Yeni Özellik
+- [Gölge Modu / Giriş Momentum Hızı] VICUSDT #370 canlı olayında bulunan "Düşen Bıçağı Yakalama" tuzağını (RSI'nin düşmesi sakinleşme mi çöküş mü?) test etmek için pasif veri toplama eklendi. Yeni `active_trades.price_30m_delta_percent`/`rsi_30m_delta` sütunları, giriş anında `AutoTradeController::calculateEntryMomentum()` ile hesaplanıp kaydediliyor - hiçbir karar mantığına etkisi yok, sadece yeterli işlem birikince gerçek veriyle analiz edilecek. Model katmanı (RSI matematiği + DB kaydı) gerçek DB'ye karşı test edildi.
+
 ## [1.92.2] - 2026-08-04
 
 ### Hata Düzeltme

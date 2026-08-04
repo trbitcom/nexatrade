@@ -775,6 +775,17 @@ ALTER TABLE `active_futures_trades`
     ADD COLUMN IF NOT EXISTS `funding_fee_total` DECIMAL(20,8) NULL COMMENT 'Pozisyon acikken GERCEKTEN tahsil edilmis/odenmis fonlama ucretlerinin toplami (Binance Income History) - negatif=odedik, pozitif=aldik. Sadece pozisyon KAPANDIKTAN sonra doldurulur, bkz. FuturesTradingService::finalizeClosedTrade()';
 
 -- --------------------------------------------------------
+-- Migrasyon: Golge Modu / Giris Momentum Hizi (4 Agustos) - VICUSDT #370 canli olayinda tespit
+-- edilen "Dusen Bicagi Yakalama" tuzagini (RSI'nin dusmesi soguma mi cokus mu?) test etmek icin.
+-- entry_rsi_1h/15m'den (bir "an"i kaydeder) FARKLI olarak bu ikisi giris ONCESI son 30 dakikanin
+-- fiyat/RSI DEGISIM HIZINI olcer. HICBIR karar mantigini etkilemez - bkz. AutoTradeController::
+-- calculateEntryMomentum() yorumu, sadece pasif kayit
+-- --------------------------------------------------------
+ALTER TABLE `active_trades`
+    ADD COLUMN IF NOT EXISTS `price_30m_delta_percent` DECIMAL(8,2) NULL COMMENT 'Golge Modu: giris ONCESI son 30 dakikadaki fiyat degisim yuzdesi (negatif=dusuyordu) - sadece kayit, karar mantigini etkilemez',
+    ADD COLUMN IF NOT EXISTS `rsi_30m_delta` DECIMAL(6,2) NULL COMMENT 'Golge Modu: giris anindaki 15dk RSI ile 30 dakika (2 mum) onceki 15dk RSI arasindaki fark - sadece kayit, karar mantigini etkilemez';
+
+-- --------------------------------------------------------
 -- Test kullanicisi (login akisini denemek icin) - admin yetkisiyle
 -- E-posta : test@nexatrade.com
 -- Sifre   : Test1234!

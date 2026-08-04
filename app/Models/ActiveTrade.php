@@ -19,12 +19,12 @@ final class ActiveTrade
                 (user_id, pair, buy_order_id, quantity, entry_price, take_profit_price, stop_loss_price,
                  initial_take_profit_price, initial_stop_loss_price,
                  oco_order_list_id, take_profit_order_id, stop_loss_order_id, status, ai_entry_score,
-                 is_sl_tightened, entry_rsi_1h, entry_rsi_15m)
+                 is_sl_tightened, entry_rsi_1h, entry_rsi_15m, price_30m_delta_percent, rsi_30m_delta)
              VALUES
                 (:user_id, :pair, :buy_order_id, :quantity, :entry_price, :take_profit_price, :stop_loss_price,
                  :initial_take_profit_price, :initial_stop_loss_price,
                  :oco_order_list_id, :take_profit_order_id, :stop_loss_order_id, :status, :ai_entry_score,
-                 :is_sl_tightened, :entry_rsi_1h, :entry_rsi_15m)'
+                 :is_sl_tightened, :entry_rsi_1h, :entry_rsi_15m, :price_30m_delta_percent, :rsi_30m_delta)'
         );
 
         $stmt->execute([
@@ -56,6 +56,12 @@ final class ActiveTrade
             // cevap verebilmek icin biriktirilir (bkz. ESPUSDT #180 post-mortem)
             ':entry_rsi_1h' => $data['entry_rsi_1h'] ?? null,
             ':entry_rsi_15m' => $data['entry_rsi_15m'] ?? null,
+            // Golge Modu (4 Agustos, VICUSDT #370 canli olayindan sonra): giris anindaki SON 30
+            // DAKIKANIN fiyat/RSI degisim HIZI - entry_rsi_15m'nin AKSINE bir "an" degil bir "hiz"
+            // olcer ("Dusen Bicagi Yakalama" tuzagini test etmek icin: RSI'nin dusmesi soguma mi
+            // yoksa cokus mu?). HICBIR karar mantigini etkilemez, sadece kaydedilir
+            ':price_30m_delta_percent' => $data['price_30m_delta_percent'] ?? null,
+            ':rsi_30m_delta' => $data['rsi_30m_delta'] ?? null,
         ]);
 
         return (int) $pdo->lastInsertId();
