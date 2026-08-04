@@ -2,6 +2,11 @@
 
 Bu dosya NexaTrade'in sürüm geçmişini tutar. Format [Keep a Changelog](https://keepachangelog.com/tr/1.0.0/) ilkelerini, sürümleme ise [Semantic Versioning](https://semver.org/lang/tr/) (Major.Minor.Patch) kurallarını izler.
 
+## [1.93.1] - 2026-08-04
+
+### Hata Düzeltme
+- [AutoTradeController::rearmProtection] UNIUSDT #372 olayı sonrası: "Korumaya Al" da MIN_NOTIONAL kontrolü olmadan deniyordu - çok küçük pozisyonlarda Binance'in ham hatasıyla (Filter failure: NOTIONAL) başarısız oluyordu. Artık aynı kontrol burada da var, gerçek Zarar Kes fiyatı üzerinden (tahmin değil, kesin değer) kontrol edip anlaşılır bir mesajla erken uyarıyor.
+
 ## [1.93.0] - 2026-08-04
 
 ### Yeni Özellik

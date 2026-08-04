@@ -2313,9 +2313,11 @@ final class AutoTradeController
             $filters = $binance->getSymbolFilters($pair);
             $stepSize = $filters['step_size'] > 0 ? $filters['step_size'] : 0.0001;
             $tickSize = $filters['tick_size'] > 0 ? $filters['tick_size'] : 0.00000001;
+            $minNotional = $filters['min_notional'] ?? 0.0;
         } catch (Throwable $e) {
             $stepSize = 0.0001;
             $tickSize = 0.00000001;
+            $minNotional = 0.0;
         }
 
         $newTakeProfitPrice = $this->floorToStep($currentPrice * (1 + $takeProfitPercent / 100), $tickSize);
@@ -2324,6 +2326,22 @@ final class AutoTradeController
 
         if ($ocoQuantity <= 0) {
             return ['success' => false, 'message' => 'Miktar sıfır çıktı.'];
+        }
+
+        // MIN_NOTIONAL (Asgari İşlem Tutarı) Güvenlik Kontrolü (4 Ağustos, UNIUSDT #372 canlı
+        // olayından sonra eklendi): protectPositionWithOco()'ya eklenen AYNI kontrolün Korumaya
+        // Al'a taşınmış hali - buradaki Zarar Kes fiyatı bir "en kötü senaryo tahmini" DEĞİL,
+        // GERÇEKTEN kullanılacak kesin fiyat olduğu için tahmine gerek yok, doğrudan kontrol edilir.
+        // min_notional alınamazsa (0.0) kontrol atlanır (fail-open)
+        if ($minNotional > 0 && ($ocoQuantity * $newStopLossPrice) < $minNotional) {
+            return [
+                'success' => false,
+                'message' => sprintf(
+                    'Bu pozisyon için Zarar Kes değeri (~%.2f USDT) borsanın asgari işlem tutarının (%.2f USDT) altında kalıyor - koruma emri konulamaz. Pozisyon çok küçük, elle kapatmanız gerekebilir.',
+                    $ocoQuantity * $newStopLossPrice,
+                    $minNotional
+                ),
+            ];
         }
 
         $ocoResult = $binance->placeOCOOrder($pair, 'SELL', $ocoQuantity, $newTakeProfitPrice, $newStopLossPrice);
