@@ -263,6 +263,37 @@ final class BinanceFuturesService
         ];
     }
 
+    // 4 Agustos'ta eklendi (Funding Rate entegrasyonu): Binance'in "Get Income History" uc noktasi -
+    // TAHMINI/anlik fonlama orani DEGIL, hesaba o araliktaki pozisyon icin GERCEKTEN tahsil edilmis/
+    // odenmis fonlama ucretlerinin toplami. income NEGATIFSE biz odedik (maliyet), POZITIFSE biz
+    // aldik (gelir) - Binance'in kendi isareti KORUNUR, cagiran taraf (finalizeClosedTrade) bunu
+    // dogrudan brut PNL'e EKLER (cikarma islemi YAPMAZ, isaret zaten dogru yonde)
+    public function getFundingFeeIncome(string $symbol, int $startTimeMs, int $endTimeMs): float
+    {
+        try {
+            $params = [
+                'symbol' => strtoupper($symbol),
+                'incomeType' => 'FUNDING_FEE',
+                'startTime' => $startTimeMs,
+                'endTime' => $endTimeMs,
+                'limit' => 1000,
+            ];
+
+            $response = $this->signedRequest('GET', '/fapi/v1/income', $params);
+            $total = 0.0;
+
+            foreach ($response as $record) {
+                $total += (float) ($record['income'] ?? 0);
+            }
+
+            return $total;
+        } catch (Throwable $e) {
+            $this->logError('getFundingFeeIncome hatası: ' . $e->getMessage());
+
+            return 0.0;
+        }
+    }
+
     // 27 Temmuz'da eklendi: BinanceService::signedRequest() ile AYNI -1021 (saat kaymasi) tek
     // seferlik yeniden deneme mantigi - bkz. oradaki yorum. Genel baglanti kesintisi retry'i
     // ile KARISTIRILMAMALI, o BILINCLI olarak eklenmedi (worker havuzu tukenme riski)

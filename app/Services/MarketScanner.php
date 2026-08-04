@@ -388,9 +388,12 @@ final class MarketScanner
     // DOGEUSDT ~0.4) DOGRUDAN karsilastirilabilir/carpan hesabinda kullanilabilir. Yetersiz veri
     // veya sifir/negatif kapanis fiyati durumunda null doner (fail-open - cagiran taraf bu
     // durumda mevcut sabit mesafeyi degistirmeden kullanmaya devam eder)
-    public function calculateAtr(string $symbol, int $period = 14): ?float
+    // 4 Agustos'ta $interval parametresi eklendi (FuturesTradingService::calculateDynamicLeverage()
+    // icin, 15 dakikalik ATR gerekiyordu) - varsayilan '1h' KORUNDU, AutoTradeController'daki tek
+    // mevcut cagiran (Izleyen Stop mesafesi icin) parametre GECMEDIGI icin davranisi HIC DEGISMEDI
+    public function calculateAtr(string $symbol, int $period = 14, string $interval = '1h'): ?float
     {
-        $klines = $this->fetchKlines($symbol, '1h', $period + 1);
+        $klines = $this->fetchKlines($symbol, $interval, $period + 1);
 
         if (count($klines) < $period + 1) {
             return null;

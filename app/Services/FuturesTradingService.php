@@ -371,7 +371,8 @@ final class FuturesTradingService
     ): bool {
         $budgetPercent = (float) ($userKey['auto_trade_budget_percent'] ?? 10.0);
         $maxPortfolioRiskPercent = (float) ($userKey['max_portfolio_risk_percent'] ?? 30.0);
-        $leverage = max(1, (int) ($userKey['futures_leverage'] ?? 3));
+        $baseLeverage = max(1, (int) ($userKey['futures_leverage'] ?? 3));
+        $leverage = $this->calculateDynamicLeverage($pair, $baseLeverage);
 
         // budgetPercent burada MARJ'a uygulanir (spot'taki gibi "bakiyenin yuzdesi") - gercek pozisyon
         // buyuklugu (notional) bu marjin kaldiracla carpimidir. Boylece "butce yuzdesi" kavrami
@@ -744,7 +745,7 @@ final class FuturesTradingService
 
         // isProfit ARTIK hangi bacagin (TP/SL) gerceklestigine degil, finalizeClosedTrade() icinde
         // GERCEK PNL isaretine gore belirleniyor - bkz. o metodun basindaki KRITIK DUZELTME yorumu
-        $this->finalizeClosedTrade($trade, $exitPrice, $executedQty, $filledLeg['orderId'] ?? null);
+        $this->finalizeClosedTrade($futures, $trade, $exitPrice, $executedQty, $filledLeg['orderId'] ?? null);
 
         return 1;
     }
@@ -814,7 +815,7 @@ final class FuturesTradingService
 
         // isProfit ARTIK hangi esigin (TP/SL) asildigina degil, finalizeClosedTrade() icinde
         // GERCEK PNL isaretine gore belirleniyor - bkz. o metodun basindaki KRITIK DUZELTME yorumu
-        $this->finalizeClosedTrade($trade, $exitPrice, $executedQty, $closeResult['order_id'] ?? null);
+        $this->finalizeClosedTrade($futures, $trade, $exitPrice, $executedQty, $closeResult['order_id'] ?? null);
 
         return 1;
     }
@@ -1099,7 +1100,7 @@ final class FuturesTradingService
     // degil). Izleyen Stop, SHORT pozisyonda Zarar Kes'i girisin ALTINA cektiginde (kar kilitleme),
     // SONRADAN o seviye tetiklense bile pozisyon GERCEKTE karda kapanmis olur - simdi isProfit
     // SADECE cikis/giris fiyat karsilastirmasindan (SHORT icin: exit <= entry) hesaplaniyor
-    private function finalizeClosedTrade(array $trade, float $exitPrice, float $executedQty, ?int $binanceOrderId): void
+    private function finalizeClosedTrade(BinanceFuturesService $futures, array $trade, float $exitPrice, float $executedQty, ?int $binanceOrderId): void
     {
         $tradeId = (int) $trade['id'];
         $userId = (int) $trade['user_id'];
@@ -1109,6 +1110,16 @@ final class FuturesTradingService
 
         // SHORT: kar, fiyat DUSTUKCE olusur - cikis fiyati giris fiyatina esit veya ondan DUSUKSE karda
         $isProfit = $exitPrice <= $entryPrice;
+
+        // Funding Rate entegrasyonu (4 Agustos): pozisyonun ACIK oldugu TUM sure boyunca GERCEKTEN
+        // tahsil edilmis/odenmis fonlama ucretini (Binance Income History, TAHMINI/anlik oran DEGIL)
+        // ceker - musteri talebi: "gunlerce acik kalan pozisyonlarda bu maliyet/gelir hesaba
+        // katilmiyor". Basarisiz olursa (agdaki gecici bir sorun) 0.0 doner (fail-open) - PNL
+        // bildirimini/kapanisi ASLA engellemez, sadece o turda fonlama bilgisi eksik kalir
+        $openedAtMs = strtotime((string) $trade['opened_at']) * 1000;
+        $nowMs = (int) (microtime(true) * 1000);
+        $fundingFeeTotal = $futures->getFundingFeeIncome($pair, $openedAtMs, $nowMs);
+        ActiveFuturesTrade::setFundingFeeTotal($tradeId, $fundingFeeTotal);
 
         $this->criticalPersist(function () use ($userId, $pair, $executedQty, $exitPrice, $exitTotal, $binanceOrderId, $trade, $tradeId, $isProfit): void {
             // Idempotenslik korumasi - bkz. Order::existsByBinanceOrderId() yorumu/AutoTradeController::
@@ -1138,8 +1149,15 @@ final class FuturesTradingService
         $pnlAmount = $entryTotal - $exitTotal;
         $pnlPercent = $entryPrice > 0 ? (($entryPrice - $exitPrice) / $entryPrice) * 100 : 0.0;
 
+        // Net PNL = brut fiyat PNL'i + fonlama ucreti - Binance'in kendi isareti (negatif=odedik,
+        // pozitif=aldik) zaten dogru yonde oldugu icin DOGRUDAN TOPLANIR, cikarma islemi YAPILMAZ
+        $netPnlAmount = $pnlAmount + $fundingFeeTotal;
+        $fundingLine = abs($fundingFeeTotal) >= 0.01
+            ? sprintf("\nFonlama Ücreti: %+.2f USDT | Net PNL: %+.2f USDT", $fundingFeeTotal, $netPnlAmount)
+            : '';
+
         $this->notifyCustomer($userId, sprintf(
-            "%s [NexaTrade Futures] KISA Pozisyon Kapandı (%s)\nCoin: %s | Kaldıraç: %dx\nGiriş: %s → Çıkış: %s\nPNL: %+.2f USDT (%+.2f%%)",
+            "%s [NexaTrade Futures] KISA Pozisyon Kapandı (%s)\nCoin: %s | Kaldıraç: %dx\nGiriş: %s → Çıkış: %s\nPNL: %+.2f USDT (%+.2f%%)%s",
             $isProfit ? '✅' : '🔻',
             $isProfit ? 'Kâr Al' : 'Zarar Kes',
             $pair,
@@ -1147,7 +1165,8 @@ final class FuturesTradingService
             $this->formatPrice($entryPrice),
             $this->formatPrice($exitPrice),
             $pnlAmount,
-            $pnlPercent
+            $pnlPercent,
+            $fundingLine
         ));
     }
 
@@ -1164,6 +1183,59 @@ final class FuturesTradingService
         }
 
         return $margin;
+    }
+
+    // --- ATR'ye Bağlı Dinamik Kaldıraç (4 Ağustos, müşteri talebi) ---
+    // AutoTradeController'daki İzleyen Stop mesafesi ATR çarpanına (bkz. o dosyada "ATR Bazlı
+    // Volatilite Çarpanı") KESİNLİKLE DOKUNULMADI - bu TAMAMEN AYRI, sadece giriş anındaki
+    // KALDIRACI etkileyen bağımsız bir mekanizma. Müşterinin kendi ayarladığı kaldıraç bir
+    // TAVANDIR: oynaklık yüksekse ALTINA inilir, düşük/normalse ASLA YUKARI ÇIKILMAZ (tek yönlü,
+    // konservatif - müşteri "sabit bırak" dedi, "artır" demedi). 15 dakikalık ATR kullanılır
+    // (AutoTradeController'ın 1 saatlik referansından BİLİNÇLİ farklı - futures girişi kısa vadeli
+    // bir karar, o anki ANLIK oynaklığa bakmalı). Referans eşik (%0.4) İLK TAHMİN -
+    // ATR_REFERENCE_PERCENT (1 saatlik, %0.8) gibi gerçek veriyle hiç doğrulanmadı, ileride
+    // ayarlanması gerekebilir. ATR alınamazsa (null/hata) fail-open: kullanıcının kendi ayarı
+    // değişmeden kullanılır - bu kontrol asla bir girişi ENGELLEMEZ, sadece boyutunu küçültebilir
+    private const DYNAMIC_LEVERAGE_ATR_PERIOD = 14;
+    private const DYNAMIC_LEVERAGE_ATR_REFERENCE_PERCENT = 0.4;
+
+    private function calculateDynamicLeverage(string $pair, int $baseLeverage): int
+    {
+        try {
+            $atrPercent = (new MarketScanner())->calculateAtr($pair, self::DYNAMIC_LEVERAGE_ATR_PERIOD, '15m');
+        } catch (Throwable $e) {
+            return $baseLeverage;
+        }
+
+        if ($atrPercent === null) {
+            return $baseLeverage;
+        }
+
+        if ($atrPercent > self::DYNAMIC_LEVERAGE_ATR_REFERENCE_PERCENT * 2) {
+            // Çok oynak (referansın 2 katından fazla): kaldıracı üçte bire indir
+            $adjusted = (int) floor($baseLeverage / 3);
+        } elseif ($atrPercent > self::DYNAMIC_LEVERAGE_ATR_REFERENCE_PERCENT) {
+            // Orta oynaklık: kaldıracı üçte iki oranına indir
+            $adjusted = (int) floor($baseLeverage * 2 / 3);
+        } else {
+            // Sakin piyasa: müşterinin kendi ayarı aynen kalır, YÜKSELTİLMEZ
+            return $baseLeverage;
+        }
+
+        $finalLeverage = max(1, $adjusted);
+
+        if ($finalLeverage !== $baseLeverage) {
+            $this->logFutures(sprintf(
+                'Dinamik Kaldıraç: %s için 15dk ATR %%%.2f (referans %%%.2f) - kaldıraç %dx yerine %dx kullanılacak.',
+                $pair,
+                $atrPercent,
+                self::DYNAMIC_LEVERAGE_ATR_REFERENCE_PERCENT,
+                $baseLeverage,
+                $finalLeverage
+            ));
+        }
+
+        return $finalLeverage;
     }
 
     // Kapanis siparisi kendi strategy_bucket'ini YENIDEN hesaplamaz - pozisyonu ACAN ilk SATIS

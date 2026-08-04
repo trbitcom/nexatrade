@@ -2,6 +2,12 @@
 
 Bu dosya NexaTrade'in sürüm geçmişini tutar. Format [Keep a Changelog](https://keepachangelog.com/tr/1.0.0/) ilkelerini, sürümleme ise [Semantic Versioning](https://semver.org/lang/tr/) (Major.Minor.Patch) kurallarını izler.
 
+## [1.92.0] - 2026-08-04
+
+### Yeni Özellik
+- [Futures Funding Rate entegrasyonu] `FuturesTradingService` artık pozisyon kapanırken Binance Income History'den o pozisyonun açık olduğu süre boyunca GERÇEKTEN tahsil edilmiş/ödenmiş fonlama ücretini çekip kaydediyor (`active_futures_trades.funding_fee_total`) ve müşteri bildirimine "Net PNL" olarak ekliyor. Yeni `BinanceFuturesService::getFundingFeeIncome()`.
+- [Futures'a ATR'ye bağlı dinamik kaldıraç] `openShort()` artık pozisyon açmadan önce 15dk ATR'ye bakıyor - oynaklık yüksekse kullanıcının kendi kaldıraç ayarını düşürüyor (tek yönlü, asla yükseltmiyor). İzleyen Stop'un mevcut (1 saatlik referanslı) ATR çarpanına dokunulmadı, tamamen ayrı bir mekanizma. Yeni `FuturesTradingService::calculateDynamicLeverage()`, `MarketScanner::calculateAtr()`'a opsiyonel `$interval` parametresi eklendi (varsayılan '1h' korundu, mevcut çağıran etkilenmedi).
+
 ## [1.91.2] - 2026-08-04
 
 ### Hata Düzeltme (Kritik)

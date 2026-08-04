@@ -564,6 +564,7 @@ CREATE TABLE IF NOT EXISTS `active_futures_trades` (
     `trailing_stop_stage` TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT 'Izleyen Stop asamasi (spot active_trades.trailing_stop_stage ile AYNI semantik): 0=hicbiri, 1=+%FUTURES_TRAILING_TRIGGER_PERCENT karda SL +%FUTURES_TRAILING_LOCK_PERCENTe cekildi (sonrasi Asama 2 - Sinirsiz Izleme)',
     `lowest_price_seen` DECIMAL(20,8) NULL COMMENT 'Asama 2 (Sinirsiz Izleme) icin: SHORT pozisyonda kar fiyat DUSTUKCE olustugu icin (spot''un highest_price_seen''inin TERSI) Asama 1e ulasildiktan sonra gorulen en DUSUK fiyat - Zarar Kes bunun daima USTUNDE tutulur',
     `status` ENUM('open', 'closed_profit', 'closed_loss', 'closed_manual', 'failed') NOT NULL DEFAULT 'open',
+    `funding_fee_total` DECIMAL(20,8) NULL COMMENT 'Pozisyon acikken GERCEKTEN tahsil edilmis/odenmis fonlama ucretlerinin toplami (Binance Income History) - negatif=odedik, pozitif=aldik. Sadece pozisyon KAPANDIKTAN sonra doldurulur, bkz. FuturesTradingService::finalizeClosedTrade()',
     `opened_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `closed_at` TIMESTAMP NULL,
     PRIMARY KEY (`id`),
@@ -762,6 +763,16 @@ ALTER TABLE `active_trades`
 -- --------------------------------------------------------
 ALTER TABLE `active_trades`
     ADD COLUMN IF NOT EXISTS `manual_mode` TINYINT(1) UNSIGNED NOT NULL DEFAULT 0 COMMENT 'Musteri koruma emirlerini bilerek iptal etti (Dogal Mod) - otomatik Izleyen Stop/Fitil Korumasi/DCA/Korumasiz Alarmi bu pozisyona bir daha dokunmaz, sadece Yukselis Uyarisi bilgi amacli calismaya devam eder';
+
+-- --------------------------------------------------------
+-- Migrasyon: Futures Fonlama Ucreti (Funding Fee) Takibi (4 Agustos) - musteri talebi: "gunlerce
+-- acik kalan vadeli pozisyonlarda arka planda eriyen/biriken fonlama ucretlerini takip edemiyoruz".
+-- Binance'in TAHMINI/anlik fonlama orani DEGIL, "Get Income History" ile pozisyonun GERCEKTEN
+-- odedigi/aldigi ucret toplami kaydedilir - bkz. BinanceFuturesService::getFundingFeeIncome() ve
+-- FuturesTradingService::finalizeClosedTrade() yorumu
+-- --------------------------------------------------------
+ALTER TABLE `active_futures_trades`
+    ADD COLUMN IF NOT EXISTS `funding_fee_total` DECIMAL(20,8) NULL COMMENT 'Pozisyon acikken GERCEKTEN tahsil edilmis/odenmis fonlama ucretlerinin toplami (Binance Income History) - negatif=odedik, pozitif=aldik. Sadece pozisyon KAPANDIKTAN sonra doldurulur, bkz. FuturesTradingService::finalizeClosedTrade()';
 
 -- --------------------------------------------------------
 -- Test kullanicisi (login akisini denemek icin) - admin yetkisiyle

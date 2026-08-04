@@ -141,6 +141,17 @@ final class ActiveFuturesTrade
         $stmt->execute([':status' => $status, ':id' => $id]);
     }
 
+    // Funding Rate entegrasyonu (4 Agustos): pozisyon KAPANDIKTAN sonra, o pozisyonun acik oldugu
+    // sure boyunca GERCEKTEN tahsil edilmis/odenmis fonlama ucreti toplami - bkz.
+    // BinanceFuturesService::getFundingFeeIncome() ve FuturesTradingService::finalizeClosedTrade()
+    public static function setFundingFeeTotal(int $id, float $fundingFeeTotal): void
+    {
+        $pdo = Database::getInstance();
+
+        $stmt = $pdo->prepare('UPDATE active_futures_trades SET funding_fee_total = :fee WHERE id = :id');
+        $stmt->execute([':fee' => $fundingFeeTotal, ':id' => $id]);
+    }
+
     public static function findById(int $id): ?array
     {
         $pdo = Database::getInstance();
