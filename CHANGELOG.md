@@ -2,6 +2,11 @@
 
 Bu dosya NexaTrade'in sürüm geçmişini tutar. Format [Keep a Changelog](https://keepachangelog.com/tr/1.0.0/) ilkelerini, sürümleme ise [Semantic Versioning](https://semver.org/lang/tr/) (Major.Minor.Patch) kurallarını izler.
 
+## [1.92.2] - 2026-08-04
+
+### Hata Düzeltme
+- [ListingSniperService, SmartMoneyTracker] v1.92.1'de AutoTradeController'a eklenen MIN_NOTIONAL ön-kontrolü (VICUSDT #369 olayı) gözden geçirilip AYNI boşluğun bulunduğu diğer iki otonom alım modülüne de uygulandı - ikisi de alım öncesi asgari işlem tutarını hiç kontrol etmiyordu. `WebhookController` kapsam dışı (otomatik OCO/koruma hiç yok, ayrı bir SELL sinyaliyle kapanıyor). `FuturesTradingService` kapsam dışı (native TP/SL reddedilirse zaten kendi izleme mekanizmasına düşen bir yedek yolu var, spot'un aksine hiç yedeksiz kalmıyor).
+
 ## [1.92.1] - 2026-08-04
 
 ### Hata Düzeltme (Kritik)

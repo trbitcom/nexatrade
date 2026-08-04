@@ -364,8 +364,10 @@ final class ListingSniperService
         try {
             $filters = $binance->getSymbolFilters($symbol);
             $stepSize = $filters['step_size'] > 0 ? $filters['step_size'] : 0.0001;
+            $minNotional = $filters['min_notional'] ?? 0.0;
         } catch (Throwable $e) {
             $stepSize = 0.0001;
+            $minNotional = 0.0;
         }
 
         // LOT_SIZE (Adim Yuvarlama) Guvenlik Kalkani: bkz. LotSizeGuardService yorumu -
@@ -395,6 +397,36 @@ final class ListingSniperService
         }
 
         $quantity = $lotSizeGuard['floored_quantity'];
+
+        // MIN_NOTIONAL (Asgari İşlem Tutarı) Güvenlik Kontrolü (4 Ağustos, AutoTradeController'da
+        // VICUSDT #369 canlı olayında bulunan AYNI boşluk buraya da uygulandı): alım başarılı olup
+        // sonrasındaki OCO'nun Zarar Kes bacağı (sabit %STOP_LOSS_PERCENT altı) asgari işlem
+        // tutarını karşılamayabilir. min_notional alınamazsa (0.0) kontrol atlanır (fail-open)
+        if ($minNotional > 0) {
+            $worstCasePrice = $price * (1 - self::STOP_LOSS_PERCENT / 100);
+            $worstCaseNotional = $quantity * $worstCasePrice;
+
+            if ($worstCaseNotional < $minNotional) {
+                $this->logSniper(sprintf(
+                    'İşlem Atlandı: %s için asgari işlem tutarı (NOTIONAL) riski - Zarar Kes bacağının değeri (~%.2f USDT) borsanın asgari sınırının (%.2f USDT) altında kalabilir.',
+                    $symbol,
+                    $worstCaseNotional,
+                    $minNotional
+                ));
+
+                AiIntervention::record(
+                    $userId,
+                    $symbol,
+                    'min_notional_guard',
+                    sprintf(
+                        'Zarar Kes bacağının asgari işlem tutarını (%.2f USDT) karşılayamama riski nedeniyle işlem atlandı.',
+                        $minNotional
+                    )
+                );
+
+                return false;
+            }
+        }
 
         $buyResult = $binance->placeOrder($symbol, 'BUY', 'MARKET', $quantity);
 
