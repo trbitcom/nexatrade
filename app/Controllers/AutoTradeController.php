@@ -1715,9 +1715,11 @@ final class AutoTradeController
                     $filters = $binance->getSymbolFilters($pair);
                     $stepSize = $filters['step_size'] > 0 ? $filters['step_size'] : 0.0001;
                     $tickSize = $filters['tick_size'] > 0 ? $filters['tick_size'] : 0.00000001;
+                    $minNotional = $filters['min_notional'] ?? 0.0;
                 } catch (Throwable $e) {
                     $stepSize = 0.0001;
                     $tickSize = 0.00000001;
+                    $minNotional = 0.0;
                 }
 
                 // 27 Temmuz'da degisti: piyasa emriyle ANINDA almak yerine, sinyal fiyatinin
@@ -1764,6 +1766,42 @@ final class AutoTradeController
 
                 if ($quantity <= 0) {
                     throw new RuntimeException('Hesaplanan miktar sıfır veya negatif çıktı.');
+                }
+
+                // MIN_NOTIONAL (Asgari İşlem Tutarı) Güvenlik Kontrolü (4 Ağustos, VICUSDT #369
+                // canlı olayı): alım BAŞARILI oluyor ama sonrasındaki OCO (Kâr Al/Zarar Kes) emri,
+                // özellikle protectPositionWithOco()'nun geniş açtığı "Fitil Koruması" ilk Zarar Kes
+                // hedefi (girişten daha da UZAK/DÜŞÜK bir fiyat) Binance'in asgari işlem tutarını
+                // (NOTIONAL filtresi) karşılamayınca REDDEDİLİYORDU - pozisyon alınmış ama korumasız
+                // kalıyordu (coin zaten elde, geriye dönüş yok, sadece Korumasız Pozisyon Alarmı
+                // tekrar tekrar gönderiliyordu). Bunu ALIMDAN ÖNCE, en KÖTÜ senaryoyu (geniş fitil
+                // koruması Zarar Kes fiyatı) simüle ederek engelliyoruz. min_notional alınamazsa
+                // (0.0) kontrol atlanır (fail-open, mevcut davranış değişmez)
+                if ($minNotional > 0) {
+                    $wideShieldPercent = max($stopLossPercent * self::WICK_SHIELD_MULTIPLIER, self::WICK_SHIELD_MIN_PERCENT);
+                    $worstCasePrice = $limitPrice * (1 - $wideShieldPercent / 100);
+                    $worstCaseNotional = $quantity * $worstCasePrice;
+
+                    if ($worstCaseNotional < $minNotional) {
+                        $this->logAutomationError(sprintf(
+                            'İşlem Atlandı: %s için asgari işlem tutarı (NOTIONAL) riski - Zarar Kes bacağının değeri (~%.2f USDT) borsanın asgari sınırının (%.2f USDT) altında kalabilir. Bütçe bu coin için yetersiz.',
+                            $pair,
+                            $worstCaseNotional,
+                            $minNotional
+                        ));
+
+                        AiIntervention::record(
+                            $userId,
+                            $pair,
+                            'min_notional_guard',
+                            sprintf(
+                                'Zarar Kes bacağının asgari işlem tutarını (%.2f USDT) karşılayamama riski nedeniyle işlem atlandı.',
+                                $minNotional
+                            )
+                        );
+
+                        continue;
+                    }
                 }
 
                 // bkz. MAX_SAFE_ELAPSED_SECONDS_BEFORE_BUY yorumu: geri donusu olmayan Binance emir

@@ -2,6 +2,11 @@
 
 Bu dosya NexaTrade'in sürüm geçmişini tutar. Format [Keep a Changelog](https://keepachangelog.com/tr/1.0.0/) ilkelerini, sürümleme ise [Semantic Versioning](https://semver.org/lang/tr/) (Major.Minor.Patch) kurallarını izler.
 
+## [1.92.1] - 2026-08-04
+
+### Hata Düzeltme (Kritik)
+- [AutoTradeController] Alım öncesi asgari işlem tutarı (MIN_NOTIONAL) hiç kontrol edilmiyordu - canlı olayda tespit edildi (VICUSDT #369): coin başarıyla alındı, ama hemen ardından Kâr Al/Zarar Kes (OCO) emri Binance tarafından "Filter failure: NOTIONAL" ile reddedildi (Zarar Kes bacağının değeri asgari sınırın altındaydı) - pozisyon korumasız kaldı, müşteri elle kapatmak zorunda kaldı. Artık alımdan ÖNCE, en kötü senaryo (Fitil Koruması'nın geniş açtığı Zarar Kes fiyatı) simüle edilip asgari tutarı karşılayamayacaksa işlem baştan atlanıyor.
+
 ## [1.92.0] - 2026-08-04
 
 ### Yeni Özellik
